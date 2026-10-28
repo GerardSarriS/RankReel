@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { player } from './engine/Player'
-import { DEFAULT_SETTINGS, type Captions, type Clip, type Script, type Settings, type Source, type Voiceover } from './types'
+import { DEFAULT_SETTINGS, type Captions, type Clip, type PlacedSfx, type Script, type Settings, type Source, type Voiceover } from './types'
 import { formatTime, layout, totalDuration, uid } from './timeline'
 import { loadSource } from './media'
 import { fitToVoice } from './script'
 import { estimateWords } from './captions'
 import { VOICES } from './voice/tts'
+import { decodeBlob } from './voice/audio'
+import { BUILTIN_SFX, loadBuiltinSfx, registerSfxBuffer, type SfxDef } from './sfx/library'
+import { SfxInspector } from './components/SfxInspector'
 import { LeftPanel } from './components/LeftPanel'
 import { RightPanel } from './components/RightPanel'
 import { Preview } from './components/Preview'
@@ -24,6 +27,14 @@ export default function App() {
   const [voiceId, setVoiceId] = useState(VOICES[0].id)
   const [voice, setVoiceState] = useState<Voiceover | null>(null)
   const [captions, setCaptions] = useState<Captions | null>(null)
+  const [sfx, setSfx] = useState<PlacedSfx[]>([])
+  const [customSfx, setCustomSfx] = useState<SfxDef[]>([])
+  const [selectedSfxId, setSelectedSfxId] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadBuiltinSfx().catch(() => setError('No se han podido preparar los efectos de sonido.'))
+  }, [])
+  useEffect(() => player.setSfx(sfx), [sfx])
 
   useEffect(() => player.setData(sources, clips, settings), [sources, clips, settings])
   useEffect(() => player.setVoice(voice?.buffer ?? null), [voice])
@@ -86,6 +97,41 @@ export default function App() {
       })
     })
 
+  const selectClip = (id: string | null) => {
+    setSelectedId(id)
+    if (id) setSelectedSfxId(null)
+  }
+  const selectSfx = (id: string | null) => {
+    setSelectedSfxId(id)
+    if (id) setSelectedId(null)
+  }
+
+  const addSfx = (sfxId: string) => {
+    const placedSfx: PlacedSfx = { id: uid(), sfxId, time: player.getTime(), volume: 1 }
+    setSfx((list) => [...list, placedSfx])
+    selectSfx(placedSfx.id)
+  }
+  const updateSfx = (id: string, patch: Partial<PlacedSfx>) => setSfx((list) => list.map((s) => (s.id === id ? { ...s, ...patch } : s)))
+
+  const uploadSfx = async (files: FileList) => {
+    for (const f of [...files]) {
+      try {
+        const def: SfxDef = { id: `custom-${uid()}`, name: f.name.replace(/\.[^.]+$/, ''), category: 'Mis sonidos', emoji: '🎵' }
+        registerSfxBuffer(def.id, await decodeBlob(f))
+        setCustomSfx((list) => [...list, def])
+      } catch {
+        setError(`No se puede leer ${f.name}`)
+      }
+    }
+  }
+
+  const deleteSelected = () => {
+    if (selectedSfxId) {
+      setSfx((list) => list.filter((s) => s.id !== selectedSfxId))
+      setSelectedSfxId(null)
+    } else if (selectedId) deleteClip(selectedId)
+  }
+
   const deleteClip = (id: string) => {
     const next = clips.filter((c) => c.id !== id)
     const unused = sources.filter((s) => !next.some((c) => c.sourceId === s.id))
@@ -141,6 +187,7 @@ export default function App() {
 
   const placed = layout(clips)
   const total = totalDuration(placed)
+  const selectedSfx = sfx.find((s) => s.id === selectedSfxId) ?? null
   const selectedPlaced = placed.find((p) => p.clip.id === selectedId) ?? null
   const selectedSource = selectedPlaced ? (sources.find((s) => s.id === selectedPlaced.clip.sourceId) ?? null) : null
 
@@ -169,7 +216,7 @@ export default function App() {
           onSettings={updateSettings}
           onAddFiles={addFiles}
           onUpdateClip={updateClip}
-          onSelect={setSelectedId}
+          onSelect={selectClip}
           onShuffle={shuffle}
           onSortCountdown={sortCountdown}
           onReorder={reorder}
@@ -181,6 +228,9 @@ export default function App() {
           onVoice={setVoice}
           onFit={fit}
           onError={setError}
+          customSfx={customSfx}
+          onAddSfx={addSfx}
+          onUploadSfx={uploadSfx}
         />
         <Preview onAddFiles={addFiles} hasClips={clips.length > 0} />
         <RightPanel
@@ -200,13 +250,27 @@ export default function App() {
           sources={sources}
           selectedId={selectedId}
           total={total}
-          onSelect={setSelectedId}
+          onSelect={selectClip}
           onReorder={reorder}
           onSplit={splitAtPlayhead}
-          onDelete={() => selectedId && deleteClip(selectedId)}
+          onDelete={deleteSelected}
           voice={voice}
           onFit={fit}
+          sfx={sfx}
+          sfxDefs={[...BUILTIN_SFX, ...customSfx]}
+          transitionSfx={settings.transitionSfx}
+          selectedSfxId={selectedSfxId}
+          onSelectSfx={selectSfx}
+          onMoveSfx={(id, time) => updateSfx(id, { time })}
         />
+        {selectedSfx && (
+          <SfxInspector
+            sfx={selectedSfx}
+            def={[...BUILTIN_SFX, ...customSfx].find((d) => d.id === selectedSfx.sfxId)}
+            total={total}
+            onChange={(patch) => updateSfx(selectedSfx.id, patch)}
+          />
+        )}
         {selectedPlaced && selectedSource && (
           <ClipInspector placed={selectedPlaced} source={selectedSource} onChange={(patch) => updateClip(selectedPlaced.clip.id, patch)} />
         )}

@@ -15,6 +15,9 @@ Editor web para crear vídeos de rankings verticales (Top 5, Top 10…) listos p
   - 1080×1920, con el clip rellenando o ajustado al lienzo y color de fondo;
   - título gancho con palabras resaltadas;
   - fuentes Archivo, Rubik, Anton y Bebas Neue, con tamaño y colores.
+- **Guion y voz:** voz en off generada en el navegador (Piper), subida o grabada; «Ajustar a la voz» corta los clips contra ella.
+- **Subtítulos:** sincronizados con la voz, estimados desde el guion o transcritos con Whisper.
+- **Sonidos:** biblioteca de 21 efectos sintetizados en el navegador (transiciones, impactos, ranking, juego y humor, interfaz), tus propios sonidos, una pista de efectos en el timeline y un efecto automático en cada cambio de puesto.
 - **Renderizar:** graba el lienzo con el audio en tiempo real y descarga el vídeo. Sale en MP4 si el navegador lo admite (Chrome y Edge recientes, Safari) y en WebM si no.
 
 ## Desarrollo
@@ -35,7 +38,5 @@ npm run lint
 
 ## Próximos pasos
 
-- Guion y voz en off (texto a voz) y «Ajustar a la voz en off».
-- Subtítulos automáticos.
 - Exportación más rápida que el tiempo real con WebCodecs.
 - Guardar y abrir proyectos.

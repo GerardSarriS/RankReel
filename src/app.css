@@ -457,11 +457,48 @@ input[type='range'] {
 }
 .timeline-inner {
   position: relative;
-  height: 148px;
+  height: 180px;
+}
+.sfx-lane {
+  position: absolute;
+  top: 104px;
+  left: 0;
+  right: 0;
+  height: 28px;
+}
+.sfx-item {
+  position: absolute;
+  top: 0;
+  height: 26px;
+  min-width: 26px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-radius: 7px;
+  background: rgba(0, 229, 255, 0.12);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: grab;
+  touch-action: none;
+  overflow: hidden;
+}
+.sfx-item.selected {
+  border: 2px solid #00e5ff;
+}
+.sfx-item.auto {
+  width: 26px;
+  justify-content: center;
+  padding: 0;
+  margin-left: -13px;
+  background: rgba(0, 229, 255, 0.05);
+  border-style: dashed;
+  cursor: default;
 }
 .voice-lane {
   position: absolute;
-  top: 104px;
+  top: 138px;
   left: 0;
   right: 0;
   height: 34px;
@@ -779,4 +816,24 @@ select.text-input {
   font-weight: 900;
   font-size: 16px;
   text-shadow: 0 0 2px #000;
+}
+
+.sfx-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px 12px;
+}
+.sfx-list li {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 8px;
+}
+.sfx-list li:hover {
+  background: var(--panel-2);
+}
+.sfx-emoji {
+  font-size: 16px;
 }

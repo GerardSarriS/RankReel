@@ -1,5 +1,6 @@
-import { CANVAS_H, CANVAS_W, DEFAULT_SETTINGS, type Clip, type Settings, type Source, type Word } from '../types'
-import { indexAt, labelForRank, layout, ranksOf, totalDuration, type Placed } from '../timeline'
+import { CANVAS_H, CANVAS_W, DEFAULT_SETTINGS, type Clip, type PlacedSfx, type Settings, type Source, type Word } from '../types'
+import { indexAt, labelForRank, layout, ranksOf, totalDuration, transitionTimes, type Placed } from '../timeline'
+import { sfxBuffer } from '../sfx/library'
 import { chunkWords, type CaptionChunk } from '../captions'
 import { drawOverlays, drawVideo } from './draw'
 
@@ -35,6 +36,12 @@ export class Player {
   /** voice position = voiceOffset + (ctx.currentTime - voiceStartedAt) */
   private voiceOffset = 0
   private voiceStartedAt = 0
+
+  private sfx: PlacedSfx[] = []
+  private sfxGain: GainNode | null = null
+  private sfxNodes = new Set<AudioBufferSourceNode>()
+  /** Effects between sfxCursor and the playhead have already been fired. */
+  private sfxCursor = 0
 
   private words: Word[] = []
   private chunks: CaptionChunk[] = []
@@ -94,6 +101,21 @@ export class Player {
     this.applyLevels()
   }
 
+  setSfx(sfx: PlacedSfx[]) {
+    this.sfx = sfx
+  }
+
+  /** Plays an effect straight to the speakers (not recorded), for the library's preview button. */
+  preview(buffer: AudioBuffer) {
+    this.ensureAudio()
+    const node = this.audioCtx!.createBufferSource()
+    node.buffer = buffer
+    const g = this.audioCtx!.createGain()
+    g.gain.value = this.settings.sfxVolume
+    chainNodes(node, g, this.monitor!)
+    node.start()
+  }
+
   setCaptions(words: Word[]) {
     this.words = words
     this.chunks = chunkWords(words, this.settings.captionWords)
@@ -115,12 +137,14 @@ export class Player {
     this.ensureAudio()
     this.playing = true
     this.activeIndex = -1
+    this.sfxCursor = this.time - 0.001
     this.emit()
   }
 
   pause() {
     this.playing = false
     this.stopVoice()
+    this.stopSfx()
     for (const v of this.videos.values()) v.pause()
     this.syncPaused()
     this.emit()
@@ -136,6 +160,8 @@ export class Player {
     if (this.playing) {
       for (const v of this.videos.values()) v.pause()
       this.stopVoice()
+      this.stopSfx()
+      this.sfxCursor = this.time - 0.001
       this.activeIndex = -1
     } else {
       this.syncPaused()
@@ -233,8 +259,10 @@ export class Player {
       this.mix = this.audioCtx.createGain()
       this.clipGain = this.audioCtx.createGain()
       this.voiceGain = this.audioCtx.createGain()
+      this.sfxGain = this.audioCtx.createGain()
       this.clipGain.connect(this.mix)
       this.voiceGain.connect(this.mix)
+      this.sfxGain.connect(this.mix)
       this.applyLevels()
       this.monitor = this.audioCtx.createGain()
       this.monitor.gain.value = this.muted ? 0 : 1
@@ -256,6 +284,46 @@ export class Player {
   private applyLevels() {
     if (this.clipGain) this.clipGain.gain.value = this.voice ? this.settings.clipVolume : 1
     if (this.voiceGain) this.voiceGain.gain.value = this.settings.voiceVolume
+    if (this.sfxGain) this.sfxGain.gain.value = this.settings.sfxVolume
+  }
+
+  /** Placed effects plus the automatic one on every change of position. */
+  private sfxEvents(): { time: number; sfxId: string; volume: number }[] {
+    const events = this.sfx.map((s) => ({ time: s.time, sfxId: s.sfxId, volume: s.volume }))
+    const auto = this.settings.transitionSfx
+    if (auto) for (const time of transitionTimes(this.placed)) events.push({ time, sfxId: auto, volume: this.settings.transitionVolume })
+    return events
+  }
+
+  private fireSfx() {
+    if (!this.audioCtx || !this.sfxGain || this.time <= this.sfxCursor) return
+    for (const e of this.sfxEvents()) {
+      if (e.time <= this.sfxCursor || e.time > this.time) continue
+      const buffer = sfxBuffer(e.sfxId)
+      if (!buffer) continue
+      const node = this.audioCtx.createBufferSource()
+      node.buffer = buffer
+      const g = this.audioCtx.createGain()
+      g.gain.value = e.volume
+      chainNodes(node, g, this.sfxGain)
+      node.onended = () => this.sfxNodes.delete(node)
+      // Start a few ms in if the playhead already passed the effect's time.
+      node.start(0, Math.min(this.time - e.time, buffer.duration))
+      this.sfxNodes.add(node)
+    }
+    this.sfxCursor = this.time
+  }
+
+  private stopSfx() {
+    for (const n of this.sfxNodes) {
+      n.onended = null
+      try {
+        n.stop()
+      } catch {
+        // already stopped
+      }
+    }
+    this.sfxNodes.clear()
   }
 
   private stopVoice() {
@@ -353,6 +421,7 @@ export class Player {
 
     this.time = start + Math.max(0, v.currentTime - clip.trimStart)
     if (!v.paused && !v.seeking && v.readyState >= 3) this.syncVoice()
+    this.fireSfx()
 
     // Pre-seek the next clip's video so the cut doesn't stall.
     const next = this.placed[i + 1]
@@ -367,6 +436,7 @@ export class Player {
   private finish() {
     this.playing = false
     this.stopVoice()
+    this.stopSfx()
     for (const v of this.videos.values()) v.pause()
     this.activeIndex = -1
     this.emit()
@@ -399,6 +469,10 @@ export class Player {
     if (active) for (let k = 0; k <= i; k++) revealed.add(this.placed[k].clip.rank)
     drawOverlays(ctx, s, { time: this.time, ranks, labels, revealed, activeRank: active?.clip.rank ?? null, captions: this.chunks })
   }
+}
+
+function chainNodes(...nodes: AudioNode[]) {
+  for (let i = 0; i < nodes.length - 1; i++) nodes[i].connect(nodes[i + 1])
 }
 
 function pickMimeType(): { mimeType: string; ext: string } {

@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import { player } from '../engine/Player'
-import type { Source, Voiceover } from '../types'
-import { formatTime, type Placed } from '../timeline'
+import type { PlacedSfx, Source, Voiceover } from '../types'
+import { formatTime, transitionTimes, type Placed } from '../timeline'
+import { sfxBuffer, type SfxDef } from '../sfx/library'
 import { usePlayerTime } from '../usePlayer'
 
 interface Props {
@@ -15,11 +16,37 @@ interface Props {
   onDelete: () => void
   voice: Voiceover | null
   onFit: () => void
+  sfx: PlacedSfx[]
+  sfxDefs: SfxDef[]
+  transitionSfx: string | null
+  selectedSfxId: string | null
+  onSelectSfx: (id: string) => void
+  onMoveSfx: (id: string, time: number) => void
 }
 
 const PAD = 16
 
-export function Timeline({ placed, sources, selectedId, total, onSelect, onReorder, onSplit, onDelete, voice, onFit }: Props) {
+export function Timeline({
+  placed,
+  sources,
+  selectedId,
+  total,
+  onSelect,
+  onReorder,
+  onSplit,
+  onDelete,
+  voice,
+  onFit,
+  sfx,
+  sfxDefs,
+  transitionSfx,
+  selectedSfxId,
+  onSelectSfx,
+  onMoveSfx,
+}: Props) {
+  const drag = useRef<{ id: string; x: number; time: number } | null>(null)
+  const defOf = (id: string) => sfxDefs.find((d) => d.id === id)
+  const autoDef = transitionSfx ? defOf(transitionSfx) : undefined
   const [zoom, setZoom] = useState(60) // px per second
   const [dropIndex, setDropIndex] = useState<number | null>(null)
   const time = usePlayerTime()
@@ -41,7 +68,7 @@ export function Timeline({ placed, sources, selectedId, total, onSelect, onReord
         <button className="btn small" onClick={onSplit} disabled={!placed.length}>
           ✂ Dividir
         </button>
-        <button className="btn small" onClick={onDelete} disabled={!selectedId}>
+        <button className="btn small" onClick={onDelete} disabled={!selectedId && !selectedSfxId}>
           🗑 Borrar
         </button>
         <button className="btn small" onClick={onFit} disabled={!voice || !placed.length}>
@@ -114,6 +141,40 @@ export function Timeline({ placed, sources, selectedId, total, onSelect, onReord
               </div>
             ))}
             {dropIndex === placed.length && placed.length > 0 && <span className="drop-marker end" style={{ left: PAD + total * zoom }} />}
+          </div>
+
+          <div className="sfx-lane">
+            {autoDef &&
+              transitionTimes(placed).map((t) => (
+                <div key={`auto-${t}`} className="sfx-item auto" style={{ left: PAD + t * zoom }} title={`${autoDef.name} (automático)`}>
+                  {autoDef.emoji}
+                </div>
+              ))}
+            {sfx.map((s) => {
+              const def = defOf(s.sfxId)
+              const len = sfxBuffer(s.sfxId)?.duration ?? 0.5
+              return (
+                <div
+                  key={s.id}
+                  className={s.id === selectedSfxId ? 'sfx-item selected' : 'sfx-item'}
+                  style={{ left: PAD + s.time * zoom, width: Math.max(26, len * zoom) }}
+                  title={def?.name}
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    e.currentTarget.setPointerCapture(e.pointerId)
+                    drag.current = { id: s.id, x: e.clientX, time: s.time }
+                    onSelectSfx(s.id)
+                  }}
+                  onPointerMove={(e) => {
+                    const d = drag.current
+                    if (d?.id === s.id) onMoveSfx(s.id, Math.max(0, d.time + (e.clientX - d.x) / zoom))
+                  }}
+                  onPointerUp={() => (drag.current = null)}
+                >
+                  {def?.emoji} <span className="ellipsis">{def?.name}</span>
+                </div>
+              )
+            })}
           </div>
 
           <div className="voice-lane">

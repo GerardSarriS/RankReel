@@ -69,6 +69,11 @@ export interface Settings {
 
   voiceVolume: number
   clipVolume: number
+
+  sfxVolume: number
+  /** Effect played automatically every time the ranking moves to another position. */
+  transitionSfx: string | null
+  transitionVolume: number
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -109,6 +114,10 @@ export const DEFAULT_SETTINGS: Settings = {
 
   voiceVolume: 1,
   clipVolume: 0.35,
+
+  sfxVolume: 1,
+  transitionSfx: null,
+  transitionVolume: 0.8,
 }
 
 /** Quick picks offered next to every color picker. */
@@ -148,4 +157,12 @@ export interface Word {
 export interface Captions {
   words: Word[]
   origin: 'script' | 'whisper'
+}
+
+/** A sound effect placed on the timeline. */
+export interface PlacedSfx {
+  id: string
+  sfxId: string
+  time: number
+  volume: number
 }

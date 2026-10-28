@@ -64,3 +64,8 @@ export function titleLines(text: string): { text: string; index: number }[][] {
     )
     .filter((line) => line.length)
 }
+
+/** Times where the ranking moves to another position (clip starts whose rank changes). */
+export function transitionTimes(placed: Placed[]): number[] {
+  return placed.filter((p, i) => i > 0 && p.clip.rank !== placed[i - 1].clip.rank).map((p) => p.start)
+}

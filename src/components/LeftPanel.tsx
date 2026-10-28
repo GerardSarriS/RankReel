@@ -3,6 +3,8 @@ import { PRESET_COLORS, type Clip, type Script, type Settings, type Source, type
 import { clipDuration, formatTime, ranksOf } from '../timeline'
 import { Field, Section, Swatches, Tabs } from './ui'
 import { ScriptVoiceTab } from './ScriptVoiceTab'
+import { SoundsTab } from './SoundsTab'
+import type { SfxDef } from '../sfx/library'
 
 interface Props {
   clips: Clip[]
@@ -24,25 +26,30 @@ interface Props {
   onVoice: (v: Voiceover | null) => void
   onFit: () => void
   onError: (message: string) => void
+  customSfx: SfxDef[]
+  onAddSfx: (sfxId: string) => void
+  onUploadSfx: (files: FileList) => void
 }
 
 export function LeftPanel(props: Props) {
-  const [tab, setTab] = useState<'voice' | 'media' | 'ranking'>('media')
+  const [tab, setTab] = useState<'voice' | 'media' | 'ranking' | 'sounds'>('media')
   return (
     <aside className="panel">
       <Tabs
         value={tab}
         onChange={setTab}
         options={[
-          ['voice', 'Guion y voz'],
           ['media', 'Media'],
           ['ranking', 'Ranking'],
+          ['voice', 'Voz'],
+          ['sounds', 'Sonidos'],
         ]}
       />
       <div className="panel-body">
         {tab === 'voice' && <ScriptVoiceTab {...props} />}
         {tab === 'media' && <MediaTab {...props} />}
         {tab === 'ranking' && <RankingTab {...props} />}
+        {tab === 'sounds' && <SoundsTab {...props} />}
       </div>
     </aside>
   )
