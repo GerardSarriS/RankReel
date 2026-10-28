@@ -60,3 +60,20 @@ export function ColorInput({ value, onChange }: { value: string; onChange: (v: s
     </label>
   )
 }
+
+/** Quick color picker: preset swatches, a custom color and an optional reset. */
+export function Swatches({ value, presets, onChange, onClear }: { value: string; presets: string[]; onChange: (v: string) => void; onClear?: () => void }) {
+  return (
+    <div className="swatches">
+      {[...new Set(presets.map((c) => c.toLowerCase()))].map((c) => (
+        <button key={c} className={c === value.toLowerCase() ? 'swatch on' : 'swatch'} style={{ background: c }} onClick={() => onChange(c)} aria-label={c} />
+      ))}
+      <input type="color" value={value} onChange={(e) => onChange(e.target.value)} aria-label="Otro color" />
+      {onClear && (
+        <button className="btn small" onClick={onClear}>
+          Quitar
+        </button>
+      )}
+    </div>
+  )
+}

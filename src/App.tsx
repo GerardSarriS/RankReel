@@ -171,6 +171,7 @@ export default function App() {
           onSelect={setSelectedId}
           onShuffle={shuffle}
           onSortCountdown={sortCountdown}
+          onReorder={reorder}
           script={script}
           voiceId={voiceId}
           voice={voice}

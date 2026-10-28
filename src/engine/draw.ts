@@ -14,14 +14,32 @@ export interface OverlayInfo {
 
 const fontString = (s: Settings, size: number) => `900 ${size}px "${s.font}", sans-serif`
 
-export function drawVideo(ctx: CanvasRenderingContext2D, video: HTMLVideoElement, fit: Settings['fit']) {
+/** Area the video occupies: the whole canvas, or what is left under the top band. */
+export function videoArea(s: Settings) {
+  const top = s.bandOn ? Math.min(s.bandHeight, CANVAS_H - 200) : 0
+  return { x: 0, y: top, w: CANVAS_W, h: CANVAS_H - top }
+}
+
+export function drawVideo(ctx: CanvasRenderingContext2D, video: HTMLVideoElement, s: Settings) {
   const vw = video.videoWidth
   const vh = video.videoHeight
   if (!vw || !vh) return
-  const scale = fit === 'fill' ? Math.max(CANVAS_W / vw, CANVAS_H / vh) : Math.min(CANVAS_W / vw, CANVAS_H / vh)
+  const a = videoArea(s)
+  const scale = s.fit === 'fill' ? Math.max(a.w / vw, a.h / vh) : Math.min(a.w / vw, a.h / vh)
   const w = vw * scale
   const h = vh * scale
-  ctx.drawImage(video, (CANVAS_W - w) / 2, (CANVAS_H - h) / 2, w, h)
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(a.x, a.y, a.w, a.h)
+  ctx.clip()
+  ctx.drawImage(video, a.x + (a.w - w) / 2, a.y + (a.h - h) / 2, w, h)
+  ctx.restore()
+}
+
+export function drawBand(ctx: CanvasRenderingContext2D, s: Settings) {
+  if (!s.bandOn) return
+  ctx.fillStyle = s.bandColor
+  ctx.fillRect(0, 0, CANVAS_W, videoArea(s).y)
 }
 
 function outlined(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, size: number, fill: string, outline: string) {
@@ -51,10 +69,10 @@ function wrap(ctx: CanvasRenderingContext2D, words: string[], maxWidth: number):
   return lines
 }
 
-/** Draws the hook title centered at the top. Returns the y where it ends. */
-function drawTitle(ctx: CanvasRenderingContext2D, s: Settings, top: number): number {
+/** Draws the hook title centered at the top (or in the middle of the band). */
+function drawTitle(ctx: CanvasRenderingContext2D, s: Settings) {
   const words = s.hookText.split(/\s+/).filter(Boolean)
-  if (!words.length) return top
+  if (!words.length) return
   const size = s.titleSize
   ctx.font = fontString(s, size)
   ctx.textBaseline = 'top'
@@ -62,39 +80,38 @@ function drawTitle(ctx: CanvasRenderingContext2D, s: Settings, top: number): num
   const lineH = size * 1.12
   const space = ctx.measureText(' ').width
   const lines = wrap(ctx, words, CANVAS_W - 120)
+  const top = s.bandOn ? Math.max(30, (videoArea(s).y - lines.length * lineH) / 2) : 110
   lines.forEach((line, li) => {
     const widths = line.map((i) => ctx.measureText(words[i]).width)
     const total = widths.reduce((a, b) => a + b, 0) + space * (line.length - 1)
     let x = (CANVAS_W - total) / 2
     const y = top + li * lineH
     line.forEach((i, k) => {
-      const color = s.hookHighlights.includes(i) ? s.highlightColor : s.textColor
-      outlined(ctx, words[i], x, y, size, color, s.outlineColor)
+      outlined(ctx, words[i], x, y, size, s.hookWordColors[i] ?? s.textColor, s.outlineColor)
       x += widths[k] + space
     })
   })
-  return top + lines.length * lineH
 }
 
-function drawCountdown(ctx: CanvasRenderingContext2D, s: Settings, info: OverlayInfo, top: number) {
-  const size = Math.round(s.titleSize * 0.62)
-  const lineH = size * 1.4
+function drawCountdown(ctx: CanvasRenderingContext2D, s: Settings, info: OverlayInfo) {
+  const size = s.listSize
+  const lineH = size * s.listSpacing
   ctx.font = fontString(s, size)
   ctx.textBaseline = 'top'
   ctx.textAlign = 'left'
-  const x = 60
+  const x = s.listX
   info.ranks.forEach((rank, i) => {
-    const y = top + i * lineH
+    const y = s.listY + i * lineH
     const revealed = info.revealed.has(rank)
-    const active = rank === info.activeRank
+    const color = s.rankColors[rank] ?? s.textColor
     const num = `${rank}.`
     ctx.globalAlpha = revealed ? 1 : 0.55
-    outlined(ctx, num, x, y, size, active ? s.highlightColor : s.textColor, s.outlineColor)
+    outlined(ctx, num, x, y, size, s.listHighlightActive && rank === info.activeRank ? s.highlightColor : color, s.outlineColor)
     ctx.globalAlpha = 1
     const label = info.labels.get(rank)
     if (revealed && label) {
       const nx = x + ctx.measureText(num).width + size * 0.3
-      outlined(ctx, label, nx, y, size, s.textColor, s.outlineColor)
+      outlined(ctx, label, nx, y, size, color, s.outlineColor)
     }
   })
 }
@@ -161,9 +178,8 @@ function drawCaptions(ctx: CanvasRenderingContext2D, s: Settings, chunk: Caption
 }
 
 export function drawOverlays(ctx: CanvasRenderingContext2D, s: Settings, info: OverlayInfo) {
-  const showTitle = s.hookOn && (s.rankingOn || info.time < s.hookSeconds)
-  let y = 110
-  if (showTitle) y = drawTitle(ctx, s, y) + 40
+  drawBand(ctx, s)
+  if (s.hookOn && (s.rankingOn || info.time < s.hookSeconds)) drawTitle(ctx, s)
 
   if (s.captionsOn) {
     const chunk = chunkAt(info.captions, info.time)
@@ -171,7 +187,7 @@ export function drawOverlays(ctx: CanvasRenderingContext2D, s: Settings, info: O
   }
 
   if (!s.rankingOn) return
-  if (s.countdownOn && info.ranks.length) drawCountdown(ctx, s, info, Math.max(y, 160))
+  if (s.countdownOn && info.ranks.length) drawCountdown(ctx, s, info)
   if (info.activeRank == null) return
   if (s.segmentLabelOn) {
     const label = info.labels.get(info.activeRank)

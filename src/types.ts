@@ -31,11 +31,25 @@ export interface Settings {
 
   fit: 'fill' | 'fit'
   background: string
+  /** Solid band across the top for the title; the video plays below it. */
+  bandOn: boolean
+  bandHeight: number
+  bandColor: string
+
+  listX: number
+  listY: number
+  listSize: number
+  /** Line height as a multiple of listSize. */
+  listSpacing: number
+  /** Color per rank (number and label). Ranks without one use textColor. */
+  rankColors: Record<number, string>
+  /** Paint the number of the rank that is playing with highlightColor. */
+  listHighlightActive: boolean
 
   hookOn: boolean
   hookText: string
-  /** Indices of highlighted words in hookText. */
-  hookHighlights: number[]
+  /** Color per word of hookText, by word index. Words without one use textColor. */
+  hookWordColors: Record<number, string>
   /** How long the title stays on screen when the ranking is off. */
   hookSeconds: number
 
@@ -65,10 +79,20 @@ export const DEFAULT_SETTINGS: Settings = {
 
   fit: 'fill',
   background: '#000000',
+  bandOn: false,
+  bandHeight: 420,
+  bandColor: '#000000',
+
+  listX: 60,
+  listY: 330,
+  listSize: 50,
+  listSpacing: 1.4,
+  rankColors: {},
+  listHighlightActive: true,
 
   hookOn: true,
   hookText: 'Ranking de los mejores momentos',
-  hookHighlights: [3, 4],
+  hookWordColors: { 3: '#ffe600', 4: '#ffe600' },
   hookSeconds: 3,
 
   font: 'Rubik',
@@ -86,6 +110,9 @@ export const DEFAULT_SETTINGS: Settings = {
   voiceVolume: 1,
   clipVolume: 0.35,
 }
+
+/** Quick picks offered next to every color picker. */
+export const PRESET_COLORS = ['#ffffff', '#ffe600', '#ff3d6e', '#00e5ff', '#39ff14', '#ff8a00', '#ff1f1f', '#b388ff']
 
 export const CANVAS_W = 1080
 export const CANVAS_H = 1920

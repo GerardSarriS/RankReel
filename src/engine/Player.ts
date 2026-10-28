@@ -390,7 +390,7 @@ export class Player {
     const active = i >= 0 ? this.placed[i] : null
     if (active) {
       const v = this.videos.get(active.clip.sourceId)
-      if (v && v.readyState >= 2) drawVideo(ctx, v, s.fit)
+      if (v && v.readyState >= 2) drawVideo(ctx, v, s)
     }
 
     const ranks = ranksOf(this.clips)

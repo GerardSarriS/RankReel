@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { FONTS, type Captions, type Settings, type Voiceover } from '../types'
+import { FONTS, PRESET_COLORS, type Captions, type Settings, type Voiceover } from '../types'
 import { CaptionsTab } from './CaptionsTab'
-import { ColorInput, Field, Section, Tabs } from './ui'
+import { ColorInput, Field, Section, Swatches, Tabs } from './ui'
 
 interface Props {
   settings: Settings
@@ -32,11 +32,16 @@ export function RightPanel(props: Props) {
 
 function CanvasTab({ settings: s, onSettings }: Props) {
   const words = s.hookText.split(/\s+/).filter(Boolean)
+  const [word, setWord] = useState<number | null>(null)
+  const selected = word !== null && word < words.length ? word : null
 
-  const toggleWord = (i: number) =>
-    onSettings({
-      hookHighlights: s.hookHighlights.includes(i) ? s.hookHighlights.filter((w) => w !== i) : [...s.hookHighlights, i],
-    })
+  const setWordColor = (color: string | null) => {
+    if (selected === null) return
+    const next = { ...s.hookWordColors }
+    if (color) next[selected] = color
+    else delete next[selected]
+    onSettings({ hookWordColors: next })
+  }
 
   return (
     <>
@@ -58,6 +63,23 @@ function CanvasTab({ settings: s, onSettings }: Props) {
       </Section>
 
       <Section
+        title="Franja superior"
+        description="Una franja lisa arriba para el título; el vídeo se ve debajo, sin que el texto lo tape."
+        toggle={{ value: s.bandOn, onChange: (v) => onSettings({ bandOn: v }) }}
+      >
+        {s.bandOn && (
+          <>
+            <Field label="Altura" value={`${s.bandHeight}px`}>
+              <input type="range" min={150} max={900} step={10} value={s.bandHeight} onChange={(e) => onSettings({ bandHeight: Number(e.target.value) })} />
+            </Field>
+            <Field label="Color">
+              <ColorInput value={s.bandColor} onChange={(bandColor) => onSettings({ bandColor })} />
+            </Field>
+          </>
+        )}
+      </Section>
+
+      <Section
         title="Título gancho"
         description={s.rankingOn ? 'Con el ranking activo se queda en pantalla todo el vídeo.' : 'Texto que aparece al principio del vídeo.'}
         toggle={{ value: s.hookOn, onChange: (v) => onSettings({ hookOn: v }) }}
@@ -67,17 +89,34 @@ function CanvasTab({ settings: s, onSettings }: Props) {
           value={s.hookText}
           onChange={(e) => {
             const count = e.target.value.split(/\s+/).filter(Boolean).length
-            onSettings({ hookText: e.target.value, hookHighlights: s.hookHighlights.filter((i) => i < count) })
+            const kept = Object.entries(s.hookWordColors).filter(([i]) => Number(i) < count)
+            onSettings({ hookText: e.target.value, hookWordColors: Object.fromEntries(kept) })
           }}
         />
-        <Field label="Toca una palabra para resaltarla">
+        <Field label="Toca una palabra para darle color">
           <div className="chips">
             {words.map((w, i) => (
-              <button key={i} className={s.hookHighlights.includes(i) ? 'chip on' : 'chip'} onClick={() => toggleWord(i)}>
+              <button
+                key={i}
+                className={i === selected ? 'chip selected' : 'chip'}
+                style={{ color: s.hookWordColors[i] ?? undefined }}
+                onClick={() => setWord(i === selected ? null : i)}
+              >
                 {w}
               </button>
             ))}
           </div>
+        </Field>
+        {selected !== null && (
+          <Swatches
+            value={s.hookWordColors[selected] ?? s.textColor}
+            presets={[s.textColor, s.highlightColor, ...PRESET_COLORS]}
+            onChange={setWordColor}
+            onClear={() => setWordColor(null)}
+          />
+        )}
+        <Field label="Tamaño" value={s.titleSize}>
+          <input type="range" min={40} max={140} value={s.titleSize} onChange={(e) => onSettings({ titleSize: Number(e.target.value) })} />
         </Field>
         {!s.rankingOn && (
           <Field label="Duración" value={`${s.hookSeconds.toFixed(1)} s`}>
@@ -89,9 +128,6 @@ function CanvasTab({ settings: s, onSettings }: Props) {
       <Section title="Texto">
         <Field label="Fuente">
           <Tabs value={s.font} onChange={(font) => onSettings({ font })} options={FONTS.map((f) => [f, f.split(' ')[0]])} />
-        </Field>
-        <Field label="Tamaño" value={s.titleSize}>
-          <input type="range" min={48} max={120} value={s.titleSize} onChange={(e) => onSettings({ titleSize: Number(e.target.value) })} />
         </Field>
         <Field label="Color del texto">
           <ColorInput value={s.textColor} onChange={(textColor) => onSettings({ textColor })} />

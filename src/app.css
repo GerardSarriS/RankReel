@@ -45,6 +45,9 @@ select {
 .app {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  /* Without this the grid grows to fit the timeline's full width. */
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 100vw;
   height: 100vh;
   gap: 8px;
   padding: 0 8px 8px;
@@ -415,6 +418,7 @@ input[type='range'] {
 
 /* ---- timeline ---- */
 .timeline-area {
+  min-width: 0;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -678,4 +682,96 @@ select.text-input {
   .trim {
     grid-template-columns: 1fr;
   }
+}
+
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  cursor: pointer;
+  padding: 0;
+}
+.swatch.on {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.swatches input[type='color'] {
+  width: 30px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: none;
+  cursor: pointer;
+}
+.clip-list li {
+  position: relative;
+}
+.clip-list li.drop-before::before,
+.clip-list .drop-end {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: -2px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--yellow);
+}
+.clip-list .drop-end {
+  position: relative;
+  display: block;
+  padding: 0;
+}
+.handle {
+  color: var(--dim);
+  cursor: grab;
+  font-size: 16px;
+}
+.move {
+  display: flex;
+  flex-direction: column;
+}
+.move .icon-btn {
+  font-size: 10px;
+  padding: 2px 4px;
+}
+.move .icon-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+.rank-colors {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rank-color {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rank-color .swatches {
+  margin-top: 0;
+}
+.rank-chip {
+  width: 28px;
+  font-weight: 900;
+  font-size: 16px;
+  text-shadow: 0 0 2px #000;
 }
