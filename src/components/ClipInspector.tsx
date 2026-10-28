@@ -1,5 +1,6 @@
 import type { Clip, Source } from '../types'
 import { formatTime, type Placed } from '../timeline'
+import { Range } from './ui'
 
 const MIN_LENGTH = 0.2
 
@@ -15,7 +16,7 @@ export function ClipInspector({ placed, source, onChange }: Props) {
     <div className="inspector">
       <div className="inspector-head">
         <strong>{source.name}</strong>
-        <span className="mono dim">
+        <span className="num dim">
           {formatTime(start)} → {formatTime(end)} · {formatTime(end - start, false)}
         </span>
       </div>
@@ -23,10 +24,9 @@ export function ClipInspector({ placed, source, onChange }: Props) {
         <label>
           <span className="field-head">
             <span>Inicio del recorte</span>
-            <span className="mono">{clip.trimStart.toFixed(2)}s</span>
+            <span className="num">{clip.trimStart.toFixed(2)}s</span>
           </span>
-          <input
-            type="range"
+          <Range
             min={0}
             max={source.duration}
             step={0.01}
@@ -37,10 +37,9 @@ export function ClipInspector({ placed, source, onChange }: Props) {
         <label>
           <span className="field-head">
             <span>Fin del recorte</span>
-            <span className="mono">{clip.trimEnd.toFixed(2)}s</span>
+            <span className="num">{clip.trimEnd.toFixed(2)}s</span>
           </span>
-          <input
-            type="range"
+          <Range
             min={0}
             max={source.duration}
             step={0.01}

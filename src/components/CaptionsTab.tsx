@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { Captions, Settings, Voiceover } from '../types'
 import { transcribe, type TranscribeProgress } from '../voice/transcribe'
-import { Field, Section } from './ui'
+import { Sparkles } from 'lucide-react'
+import { Field, Section, Range, Toggle } from './ui'
 
 interface Props {
   settings: Settings
@@ -44,7 +45,7 @@ export function CaptionsTab({ settings: s, voice, voiceId, captions, onSettings,
         description="Frases cortas sincronizadas con la voz en off, con la palabra que suena resaltada."
         toggle={{ value: s.captionsOn, onChange: (v) => onSettings({ captionsOn: v }) }}
       >
-        <p className="note mono">
+        <p className="note">
           {!voice
             ? 'Sin voz en off: genera o sube una en «Guion y voz».'
             : !captions
@@ -67,25 +68,23 @@ export function CaptionsTab({ settings: s, voice, voiceId, captions, onSettings,
           ))}
         </select>
         <button className="btn block" disabled={!voice || !!progress} onClick={run}>
-          {progress ? `${progress.status}${progress.value !== null ? ` ${Math.round(progress.value * 100)}%` : ''}` : '✨ Transcribir voz'}
+          <Sparkles size={15} />
+          {progress ? `${progress.status}${progress.value !== null ? ` ${Math.round(progress.value * 100)}%` : ''}` : 'Transcribir voz'}
         </button>
       </Section>
 
       <Section title="Estilo">
         <Field label="Palabras a la vez" value={s.captionWords}>
-          <input type="range" min={1} max={6} value={s.captionWords} onChange={(e) => onSettings({ captionWords: Number(e.target.value) })} />
+          <Range min={1} max={6} value={s.captionWords} onChange={(e) => onSettings({ captionWords: Number(e.target.value) })} />
         </Field>
         <Field label="Tamaño" value={s.captionSize}>
-          <input type="range" min={48} max={140} value={s.captionSize} onChange={(e) => onSettings({ captionSize: Number(e.target.value) })} />
+          <Range min={48} max={140} value={s.captionSize} onChange={(e) => onSettings({ captionSize: Number(e.target.value) })} />
         </Field>
         <Field label="Posición vertical" value={`${Math.round(s.captionY * 100)}%`}>
-          <input type="range" min={0.15} max={0.9} step={0.01} value={s.captionY} onChange={(e) => onSettings({ captionY: Number(e.target.value) })} />
+          <Range min={0.15} max={0.9} step={0.01} value={s.captionY} onChange={(e) => onSettings({ captionY: Number(e.target.value) })} />
         </Field>
-        <label className="check" style={{ marginTop: 12 }}>
-          <input type="checkbox" checked={s.captionUpper} onChange={(e) => onSettings({ captionUpper: e.target.checked })} />
-          En mayúsculas
-        </label>
-        <p className="note mono">La fuente y los colores salen de Lienzo y título.</p>
+        <Toggle label="En mayúsculas" checked={s.captionUpper} onChange={(v) => onSettings({ captionUpper: v })} />
+        <p className="note">La fuente y los colores salen de Lienzo y título.</p>
       </Section>
     </>
   )

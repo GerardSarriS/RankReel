@@ -2,6 +2,8 @@
 
 Editor web para crear vídeos de rankings verticales (Top 5, Top 10…) listos para TikTok, Reels y Shorts. Todo se procesa en el navegador: los vídeos no se suben a ningún servidor.
 
+![RankReel Studio](docs/screenshot.png)
+
 ## Qué hace (MVP)
 
 - **Clips:** subes vídeos (o los arrastras a la vista previa). Cada clip recibe un puesto (#1, #2…) y una etiqueta.

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { FONTS, PRESET_COLORS, type Captions, type Settings, type Voiceover } from '../types'
 import { CaptionsTab } from './CaptionsTab'
 import { titleLines } from '../timeline'
-import { ColorInput, Field, Section, Swatches, Tabs } from './ui'
+import { ColorInput, Field, Section, Swatches, Tabs, Range } from './ui'
 
 interface Props {
   settings: Settings
@@ -17,15 +17,17 @@ interface Props {
 export function RightPanel(props: Props) {
   const [tab, setTab] = useState<'captions' | 'canvas'>('canvas')
   return (
-    <aside className="panel">
-      <Tabs
-        value={tab}
-        onChange={setTab}
-        options={[
-          ['captions', 'Subtítulos'],
-          ['canvas', 'Lienzo y título'],
-        ]}
-      />
+    <aside className="panel inspector-panel">
+      <header className="panel-header">
+        <Tabs
+          value={tab}
+          onChange={setTab}
+          options={[
+            ['canvas', 'Lienzo y título'],
+            ['captions', 'Subtítulos'],
+          ]}
+        />
+      </header>
       <div className="panel-body">{tab === 'captions' ? <CaptionsTab {...props} /> : <CanvasTab {...props} />}</div>
     </aside>
   )
@@ -72,7 +74,7 @@ function CanvasTab({ settings: s, onSettings }: Props) {
         {s.bandOn && (
           <>
             <Field label="Altura" value={`${s.bandHeight}px`}>
-              <input type="range" min={150} max={900} step={10} value={s.bandHeight} onChange={(e) => onSettings({ bandHeight: Number(e.target.value) })} />
+              <Range min={150} max={900} step={10} value={s.bandHeight} onChange={(e) => onSettings({ bandHeight: Number(e.target.value) })} />
             </Field>
             <Field label="Color">
               <ColorInput value={s.bandColor} onChange={(bandColor) => onSettings({ bandColor })} />
@@ -96,7 +98,7 @@ function CanvasTab({ settings: s, onSettings }: Props) {
             onSettings({ hookText: e.target.value, hookWordColors: Object.fromEntries(kept) })
           }}
         />
-        <p className="note mono">Pulsa Intro para hacer un salto de línea.</p>
+        <p className="note">Pulsa Intro para hacer un salto de línea.</p>
         <Field label="Toca una palabra para darle color">
           {lines.map((line, li) => (
             <div className="chips" key={li}>
@@ -122,11 +124,11 @@ function CanvasTab({ settings: s, onSettings }: Props) {
           />
         )}
         <Field label="Tamaño" value={s.titleSize}>
-          <input type="range" min={40} max={140} value={s.titleSize} onChange={(e) => onSettings({ titleSize: Number(e.target.value) })} />
+          <Range min={40} max={140} value={s.titleSize} onChange={(e) => onSettings({ titleSize: Number(e.target.value) })} />
         </Field>
         {!s.rankingOn && (
           <Field label="Duración" value={`${s.hookSeconds.toFixed(1)} s`}>
-            <input type="range" min={1} max={10} step={0.5} value={s.hookSeconds} onChange={(e) => onSettings({ hookSeconds: Number(e.target.value) })} />
+            <Range min={1} max={10} step={0.5} value={s.hookSeconds} onChange={(e) => onSettings({ hookSeconds: Number(e.target.value) })} />
           </Field>
         )}
       </Section>

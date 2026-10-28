@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { CircleAlert, Clock, Download, Film, RectangleVertical, ShieldCheck, X } from 'lucide-react'
 import { player } from './engine/Player'
 import { DEFAULT_SETTINGS, type Captions, type Clip, type PlacedSfx, type Script, type Settings, type Source, type Voiceover } from './types'
 import { formatTime, layout, totalDuration, uid } from './timeline'
@@ -195,16 +196,35 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="logo">R</span>
+          <Logo />
           <span className="brand-name">RankReel</span>
-          <span className="tag">STUDIO</span>
+          <span className="brand-sep" />
+          <span className="brand-sub">Studio</span>
         </div>
-        <div className="summary mono">
-          {clips.length} clips · {formatTime(total, false)} · 1080×1920 · se renderiza en tu navegador
+        <div className="summary">
+          <span className="pill">
+            <Film size={13} />
+            <span className="num">{clips.length}</span> clips
+          </span>
+          <span className="pill">
+            <Clock size={13} />
+            <span className="num">{formatTime(total, false)}</span>
+          </span>
+          <span className="pill">
+            <RectangleVertical size={13} />
+            <span className="num">1080×1920</span>
+          </span>
         </div>
-        <button className="btn primary" disabled={!clips.length} onClick={() => setRendering(true)}>
-          ⇪ Renderizar
-        </button>
+        <div className="topbar-actions">
+          <span className="local-hint">
+            <ShieldCheck size={14} />
+            Se renderiza en tu navegador
+          </span>
+          <button className="btn primary" disabled={!clips.length} onClick={() => setRendering(true)}>
+            <Download size={15} />
+            Renderizar
+          </button>
+        </div>
       </header>
 
       <main className="workspace">
@@ -279,9 +299,23 @@ export default function App() {
       {rendering && <RenderDialog onClose={() => setRendering(false)} />}
       {error && (
         <div className="toast" role="alert" onClick={() => setError(null)}>
-          {error}
+          <CircleAlert size={16} />
+          <span>{error}</span>
+          <X size={14} className="toast-close" />
         </div>
       )}
     </div>
+  )
+}
+
+/** Brand mark: three ascending bars, a podium seen as a chart. */
+function Logo() {
+  return (
+    <svg className="logo" width="24" height="24" viewBox="0 0 24 24" aria-hidden>
+      <rect width="24" height="24" rx="6" fill="var(--accent)" />
+      <rect x="5" y="13" width="3.5" height="6" rx="1" fill="var(--accent-ink)" />
+      <rect x="10.25" y="9" width="3.5" height="10" rx="1" fill="var(--accent-ink)" />
+      <rect x="15.5" y="5" width="3.5" height="14" rx="1" fill="var(--accent-ink)" />
+    </svg>
   )
 }

@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import { PRESET_COLORS, type Clip, type Script, type Settings, type Source, type Voiceover } from '../types'
 import { clipDuration, formatTime, ranksOf } from '../timeline'
 import { downloadTikTok } from '../media'
-import { Field, Section, Swatches, Tabs } from './ui'
+import { ArrowDownWideNarrow, ChevronDown, ChevronUp, Download, Film, GripVertical, Link2, ListOrdered, Mic, Music2, Plus, Shuffle, Upload } from 'lucide-react'
+import { Field, Section, Swatches, Range, Toggle } from './ui'
 import { ScriptVoiceTab } from './ScriptVoiceTab'
 import { SoundsTab } from './SoundsTab'
 import type { SfxDef } from '../sfx/library'
@@ -32,25 +33,38 @@ interface Props {
   onUploadSfx: (files: FileList) => void
 }
 
+type Tab = 'media' | 'ranking' | 'voice' | 'sounds'
+
+const TABS: { id: Tab; label: string; title: string; icon: typeof Film }[] = [
+  { id: 'media', label: 'Media', title: 'Media', icon: Film },
+  { id: 'ranking', label: 'Ranking', title: 'Ranking', icon: ListOrdered },
+  { id: 'voice', label: 'Voz', title: 'Guion y voz', icon: Mic },
+  { id: 'sounds', label: 'Sonidos', title: 'Sonidos', icon: Music2 },
+]
+
 export function LeftPanel(props: Props) {
-  const [tab, setTab] = useState<'voice' | 'media' | 'ranking' | 'sounds'>('media')
+  const [tab, setTab] = useState<Tab>('media')
+  const current = TABS.find((t) => t.id === tab)!
   return (
-    <aside className="panel">
-      <Tabs
-        value={tab}
-        onChange={setTab}
-        options={[
-          ['media', 'Media'],
-          ['ranking', 'Ranking'],
-          ['voice', 'Voz'],
-          ['sounds', 'Sonidos'],
-        ]}
-      />
-      <div className="panel-body">
-        {tab === 'voice' && <ScriptVoiceTab {...props} />}
-        {tab === 'media' && <MediaTab {...props} />}
-        {tab === 'ranking' && <RankingTab {...props} />}
-        {tab === 'sounds' && <SoundsTab {...props} />}
+    <aside className="sidebar">
+      <nav className="rail" aria-label="Secciones">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button key={id} className={id === tab ? 'rail-item active' : 'rail-item'} onClick={() => setTab(id)} aria-current={id === tab}>
+            <Icon size={18} strokeWidth={1.75} />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
+      <div className="panel">
+        <header className="panel-header">
+          <h2>{current.title}</h2>
+        </header>
+        <div className="panel-body">
+          {tab === 'voice' && <ScriptVoiceTab {...props} />}
+          {tab === 'media' && <MediaTab {...props} />}
+          {tab === 'ranking' && <RankingTab {...props} />}
+          {tab === 'sounds' && <SoundsTab {...props} />}
+        </div>
       </div>
     </aside>
   )
@@ -83,28 +97,33 @@ function TikTokImport({ onAddFiles, onError }: Props) {
   }
 
   const label = (mode: 'import' | 'save', idle: string) =>
-    busy?.mode === mode ? (busy.progress === null ? 'Descargando…' : `Descargando… ${Math.round(busy.progress * 100)}%`) : idle
+    busy?.mode === mode ? (busy.progress === null ? 'Descargando' : `${Math.round(busy.progress * 100)}%`) : idle
 
   return (
     <Section title="Desde TikTok" description="Pega el enlace de un TikTok y se convierte a MP4 sin marca de agua.">
-      <input
-        className="text-input"
-        type="url"
-        placeholder="https://www.tiktok.com/@usuario/video/…"
-        value={link}
-        onChange={(e) => setLink(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && void run('import')}
-        disabled={!!busy}
-      />
-      <div className="row" style={{ marginTop: 8 }}>
-        <button className="btn small primary" disabled={!link.trim() || !!busy} onClick={() => run('import')}>
-          {label('import', '＋ Añadir como clip')}
+      <div className="input-icon">
+        <Link2 size={15} />
+        <input
+          className="text-input"
+          type="url"
+          placeholder="https://www.tiktok.com/@usuario/video/…"
+          value={link}
+          onChange={(e) => setLink(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && void run('import')}
+          disabled={!!busy}
+        />
+      </div>
+      <div className="button-pair">
+        <button className="btn" disabled={!link.trim() || !!busy} onClick={() => run('import')}>
+          <Plus size={15} />
+          {label('import', 'Añadir clip')}
         </button>
-        <button className="btn small" disabled={!link.trim() || !!busy} onClick={() => run('save')}>
-          {label('save', '⇩ Descargar MP4')}
+        <button className="btn" disabled={!link.trim() || !!busy} onClick={() => run('save')}>
+          <Download size={15} />
+          {label('save', 'Descargar')}
         </button>
       </div>
-      <p className="note mono">Usa solo vídeos que tengas permiso para reutilizar.</p>
+      <p className="note">Usa solo vídeos que tengas permiso para reutilizar.</p>
     </Section>
   )
 }
@@ -115,8 +134,10 @@ function MediaTab(props: Props) {
   return (
     <>
       <Section title="Vídeos" description="Sube los vídeos del ranking. Los nombres del ranking, los puestos y el orden se ponen en la pestaña Ranking.">
-        <button className="btn" onClick={() => input.current?.click()}>
-          ＋ Añadir vídeos
+        <button className="dropzone" onClick={() => input.current?.click()}>
+          <Upload size={18} strokeWidth={1.75} />
+          <strong>Añadir vídeos</strong>
+          <span>o arrástralos a la vista previa</span>
         </button>
         <input
           ref={input}
@@ -137,9 +158,12 @@ function MediaTab(props: Props) {
             const first = clips.find((c) => c.sourceId === src.id)
             return (
               <li key={src.id} className={first && first.id === selectedId ? 'selected' : ''} onClick={() => first && onSelect(first.id)}>
+                <span className="file-icon">
+                  <Film size={15} strokeWidth={1.75} />
+                </span>
                 <div className="clip-meta">
                   <strong className="ellipsis">{src.name}</strong>
-                  <span className="mono dim">
+                  <span className="num dim">
                     {formatTime(src.duration, false)} · {src.width}×{src.height}
                   </span>
                 </div>
@@ -188,7 +212,7 @@ function ClipOrder({ clips, sources, selectedId, onUpdateClip, onSelect, onReord
           }}
         >
           <span className="handle" aria-hidden>
-            ⠿
+            <GripVertical size={15} />
           </span>
           <select
             className="rank-select"
@@ -210,16 +234,16 @@ function ClipOrder({ clips, sources, selectedId, onUpdateClip, onSelect, onReord
               onChange={(e) => onUpdateClip(c.id, { label: e.target.value })}
               onClick={(e) => e.stopPropagation()}
             />
-            <span className="mono dim ellipsis">
+            <span className="num dim ellipsis">
               {sources.find((s) => s.id === c.sourceId)?.name} · {formatTime(clipDuration(c), false)}
             </span>
           </div>
           <div className="move">
-            <button className="icon-btn" disabled={i === 0} onClick={(e) => (e.stopPropagation(), onReorder(c.id, i - 1))} aria-label="Subir">
-              ▲
+            <button className="icon-btn sm" disabled={i === 0} onClick={(e) => (e.stopPropagation(), onReorder(c.id, i - 1))} aria-label="Subir">
+              <ChevronUp size={14} />
             </button>
-            <button className="icon-btn" disabled={i === clips.length - 1} onClick={(e) => (e.stopPropagation(), onReorder(c.id, i + 2))} aria-label="Bajar">
-              ▼
+            <button className="icon-btn sm" disabled={i === clips.length - 1} onClick={(e) => (e.stopPropagation(), onReorder(c.id, i + 2))} aria-label="Bajar">
+              <ChevronDown size={14} />
             </button>
           </div>
         </li>
@@ -251,14 +275,16 @@ function RankingTab(props: Props) {
         description="Escribe el nombre que saldrá en el ranking y arrastra o usa las flechas para cambiar el orden. Cada puesto se queda con su clip."
       >
         <div className="row">
-          <button className="btn small" disabled={clips.length < 2} onClick={onShuffle}>
-            ⤮ Barajar
+          <button className="btn" disabled={clips.length < 2} onClick={onShuffle}>
+            <Shuffle size={15} />
+            Barajar
           </button>
-          <button className="btn small" disabled={clips.length < 2} onClick={onSortCountdown}>
-            ↓ Cuenta atrás
+          <button className="btn" disabled={clips.length < 2} onClick={onSortCountdown}>
+            <ArrowDownWideNarrow size={15} />
+            Cuenta atrás
           </button>
         </div>
-        {!clips.length && <p className="note mono">Añade vídeos en Media.</p>}
+        {!clips.length && <p className="note">Añade vídeos en Media.</p>}
       </Section>
       {clips.length > 0 && <ClipOrder {...props} />}
 
@@ -270,21 +296,18 @@ function RankingTab(props: Props) {
         {s.countdownOn && (
           <>
             <Field label="Altura" value={`${s.listY}px`}>
-              <input type="range" min={0} max={1700} step={5} value={s.listY} onChange={(e) => onSettings({ listY: Number(e.target.value) })} />
+              <Range min={0} max={1700} step={5} value={s.listY} onChange={(e) => onSettings({ listY: Number(e.target.value) })} />
             </Field>
             <Field label="Margen izquierdo" value={`${s.listX}px`}>
-              <input type="range" min={0} max={600} step={5} value={s.listX} onChange={(e) => onSettings({ listX: Number(e.target.value) })} />
+              <Range min={0} max={600} step={5} value={s.listX} onChange={(e) => onSettings({ listX: Number(e.target.value) })} />
             </Field>
             <Field label="Tamaño" value={s.listSize}>
-              <input type="range" min={24} max={120} value={s.listSize} onChange={(e) => onSettings({ listSize: Number(e.target.value) })} />
+              <Range min={24} max={120} value={s.listSize} onChange={(e) => onSettings({ listSize: Number(e.target.value) })} />
             </Field>
             <Field label="Interlineado" value={s.listSpacing.toFixed(2)}>
-              <input type="range" min={1} max={2.5} step={0.05} value={s.listSpacing} onChange={(e) => onSettings({ listSpacing: Number(e.target.value) })} />
+              <Range min={1} max={2.5} step={0.05} value={s.listSpacing} onChange={(e) => onSettings({ listSpacing: Number(e.target.value) })} />
             </Field>
-            <label className="check" style={{ marginTop: 12 }}>
-              <input type="checkbox" checked={s.listHighlightActive} onChange={(e) => onSettings({ listHighlightActive: e.target.checked })} />
-              Resaltar el número del puesto que suena
-            </label>
+            <Toggle label="Resaltar el puesto que suena" checked={s.listHighlightActive} onChange={(v) => onSettings({ listHighlightActive: v })} />
             {ranks.length > 0 && (
               <Field label="Color de cada puesto">
                 <div className="rank-colors">

@@ -4,7 +4,8 @@ import { formatTime } from '../timeline'
 import { defaultItemText, ranksInPlayOrder, scriptParts } from '../script'
 import { VOICES, generateVoice, type TtsProgress } from '../voice/tts'
 import { decodeBlob, startMicRecording } from '../voice/audio'
-import { Field, Section, Tabs } from './ui'
+import { AudioLines, Circle, Mic, RotateCcw, Square, Upload, Wand2, X } from 'lucide-react'
+import { Field, Section, Tabs, Range } from './ui'
 
 interface Props {
   clips: Clip[]
@@ -85,10 +86,11 @@ export function ScriptVoiceTab({ clips, settings, script, voiceId, voice, onScri
             />
           </Field>
         ))}
-        {!ranks.length && <p className="note mono">Añade clips para escribir una frase por puesto.</p>}
+        {!ranks.length && <p className="note">Añade clips para escribir una frase por puesto.</p>}
         {ranks.length > 0 && (
-          <button className="btn small" style={{ marginTop: 10 }} onClick={() => onScript({ intro: null, items: {} })}>
-            ↺ Rehacer desde las etiquetas
+          <button className="btn ghost" onClick={() => onScript({ intro: null, items: {} })}>
+            <RotateCcw size={14} />
+            Rehacer desde las etiquetas
           </button>
         )}
       </Section>
@@ -114,11 +116,12 @@ export function ScriptVoiceTab({ clips, settings, script, voiceId, voice, onScri
               ))}
             </select>
             <button className="btn primary block" disabled={!!progress || !clips.length} onClick={generate}>
+              <Wand2 size={15} />
               {progress
                 ? progress.phase === 'download'
                   ? `Descargando voz… ${Math.round(progress.value * 100)}%`
                   : `Generando… ${Math.round(progress.value * 100)}%`
-                : '🎙 Generar voz'}
+                : 'Generar voz'}
             </button>
           </>
         )}
@@ -126,7 +129,8 @@ export function ScriptVoiceTab({ clips, settings, script, voiceId, voice, onScri
           <>
             <p className="desc">Sube tu propia locución (MP3, WAV, M4A…).</p>
             <button className="btn block" onClick={() => fileInput.current?.click()}>
-              ⇪ Subir audio
+              <Upload size={15} />
+              Subir audio
             </button>
             <input
               ref={fileInput}
@@ -145,7 +149,8 @@ export function ScriptVoiceTab({ clips, settings, script, voiceId, voice, onScri
           <>
             <p className="desc">Lee el guion en voz alta. Al parar, la grabación pasa a ser la voz en off.</p>
             <button className={recording ? 'btn primary block' : 'btn block'} onClick={toggleRecording}>
-              {recording ? '■ Parar grabación' : '● Empezar a grabar'}
+              {recording ? <Square size={13} fill="currentColor" /> : <Circle size={13} fill="currentColor" className="rec-dot" />}
+              {recording ? 'Parar grabación' : 'Empezar a grabar'}
             </button>
           </>
         )}
@@ -154,32 +159,29 @@ export function ScriptVoiceTab({ clips, settings, script, voiceId, voice, onScri
       {voice && (
         <Section title="Voz actual">
           <div className="voice-card">
-            <div>
-              <strong>{voice.name}</strong>
-              <span className="mono dim"> · {formatTime(voice.buffer.duration)}</span>
+            <span className="voice-icon">
+              <Mic size={15} />
+            </span>
+            <div className="clip-meta">
+              <strong className="ellipsis">{voice.name}</strong>
+              <span className="num dim">{formatTime(voice.buffer.duration)}</span>
             </div>
             <button className="icon-btn" onClick={() => onVoice(null)} aria-label="Quitar voz">
-              ✕
+              <X size={15} />
             </button>
           </div>
           <button className="btn block" onClick={onFit} disabled={!clips.length}>
-            ⟳ Ajustar clips a la voz
+            <AudioLines size={15} />
+            Ajustar clips a la voz
           </button>
-          <p className="note mono">
+          <p className="note">
             {voice.segments ? 'Cada puesto durará lo mismo que su frase.' : 'Los clips se alargan o acortan para durar lo mismo que la voz.'}
           </p>
           <Field label="Volumen de la voz" value={`${Math.round(settings.voiceVolume * 100)}%`}>
-            <input
-              type="range"
-              min={0}
-              max={1.5}
-              step={0.05}
-              value={settings.voiceVolume}
-              onChange={(e) => onSettings({ voiceVolume: Number(e.target.value) })}
-            />
+            <Range min={0} max={1.5} step={0.05} value={settings.voiceVolume} onChange={(e) => onSettings({ voiceVolume: Number(e.target.value) })} />
           </Field>
           <Field label="Volumen de los clips" value={`${Math.round(settings.clipVolume * 100)}%`}>
-            <input type="range" min={0} max={1} step={0.05} value={settings.clipVolume} onChange={(e) => onSettings({ clipVolume: Number(e.target.value) })} />
+            <Range min={0} max={1} step={0.05} value={settings.clipVolume} onChange={(e) => onSettings({ clipVolume: Number(e.target.value) })} />
           </Field>
         </Section>
       )}
