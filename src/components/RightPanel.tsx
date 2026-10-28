@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { FONTS, PRESET_COLORS, type Captions, type Settings, type Voiceover } from '../types'
 import { CaptionsTab } from './CaptionsTab'
+import { titleLines } from '../timeline'
 import { ColorInput, Field, Section, Swatches, Tabs } from './ui'
 
 interface Props {
@@ -31,7 +32,8 @@ export function RightPanel(props: Props) {
 }
 
 function CanvasTab({ settings: s, onSettings }: Props) {
-  const words = s.hookText.split(/\s+/).filter(Boolean)
+  const lines = titleLines(s.hookText)
+  const words = lines.flat()
   const [word, setWord] = useState<number | null>(null)
   const selected = word !== null && word < words.length ? word : null
 
@@ -84,8 +86,9 @@ function CanvasTab({ settings: s, onSettings }: Props) {
         description={s.rankingOn ? 'Con el ranking activo se queda en pantalla todo el vídeo.' : 'Texto que aparece al principio del vídeo.'}
         toggle={{ value: s.hookOn, onChange: (v) => onSettings({ hookOn: v }) }}
       >
-        <input
+        <textarea
           className="text-input"
+          rows={Math.max(2, s.hookText.split('\n').length)}
           value={s.hookText}
           onChange={(e) => {
             const count = e.target.value.split(/\s+/).filter(Boolean).length
@@ -93,19 +96,22 @@ function CanvasTab({ settings: s, onSettings }: Props) {
             onSettings({ hookText: e.target.value, hookWordColors: Object.fromEntries(kept) })
           }}
         />
+        <p className="note mono">Pulsa Intro para hacer un salto de línea.</p>
         <Field label="Toca una palabra para darle color">
-          <div className="chips">
-            {words.map((w, i) => (
-              <button
-                key={i}
-                className={i === selected ? 'chip selected' : 'chip'}
-                style={{ color: s.hookWordColors[i] ?? undefined }}
-                onClick={() => setWord(i === selected ? null : i)}
-              >
-                {w}
-              </button>
-            ))}
-          </div>
+          {lines.map((line, li) => (
+            <div className="chips" key={li}>
+              {line.map(({ text, index: i }) => (
+                <button
+                  key={i}
+                  className={i === selected ? 'chip selected' : 'chip'}
+                  style={{ color: s.hookWordColors[i] ?? undefined }}
+                  onClick={() => setWord(i === selected ? null : i)}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+          ))}
         </Field>
         {selected !== null && (
           <Swatches

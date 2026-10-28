@@ -277,6 +277,11 @@ input[type='range'] {
   flex-wrap: wrap;
   gap: 6px;
 }
+.chips + .chips {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+}
 .chip {
   border: 1px solid var(--line);
   background: var(--panel-2);

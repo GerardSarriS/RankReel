@@ -18,7 +18,7 @@ export function defaultItemText(clips: Clip[], rank: number, voiceId: string): s
 /** The lines the voice will read, in play order. Empty lines are skipped. */
 export function scriptParts(script: Script, clips: Clip[], hookText: string, voiceId: string) {
   const parts: { rank: number | null; text: string }[] = []
-  const intro = (script.intro ?? hookText).trim()
+  const intro = (script.intro ?? hookText.replace(/\s*\n\s*/g, ' ')).trim()
   if (intro) parts.push({ rank: null, text: intro })
   for (const rank of ranksInPlayOrder(clips)) {
     const text = (script.items[rank] ?? defaultItemText(clips, rank, voiceId)).trim()

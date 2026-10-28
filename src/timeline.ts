@@ -47,3 +47,20 @@ export const ranksOf = (clips: Clip[]) => [...new Set(clips.map((c) => c.rank))]
 export function labelForRank(clips: Clip[], rank: number): string {
   return clips.find((c) => c.rank === rank && c.label.trim())?.label.trim() ?? ''
 }
+
+/**
+ * Splits the title into its lines (the user's line breaks) and words. Word indices run across
+ * lines, so per-word colors survive adding or removing a line break.
+ */
+export function titleLines(text: string): { text: string; index: number }[][] {
+  let index = 0
+  return text
+    .split('\n')
+    .map((line) =>
+      line
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((w) => ({ text: w, index: index++ })),
+    )
+    .filter((line) => line.length)
+}

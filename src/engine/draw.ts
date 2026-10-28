@@ -1,5 +1,6 @@
 import { CANVAS_H, CANVAS_W, type Settings } from '../types'
 import { chunkAt, type CaptionChunk } from '../captions'
+import { titleLines } from '../timeline'
 
 export interface OverlayInfo {
   time: number
@@ -69,17 +70,26 @@ function wrap(ctx: CanvasRenderingContext2D, words: string[], maxWidth: number):
   return lines
 }
 
-/** Draws the hook title centered at the top (or in the middle of the band). */
+/** Draws the hook title centered at the top (or in the middle of the band). Keeps the user's line breaks. */
 function drawTitle(ctx: CanvasRenderingContext2D, s: Settings) {
-  const words = s.hookText.split(/\s+/).filter(Boolean)
-  if (!words.length) return
+  const paragraphs = titleLines(s.hookText)
+  if (!paragraphs.length) return
   const size = s.titleSize
   ctx.font = fontString(s, size)
   ctx.textBaseline = 'top'
   ctx.textAlign = 'left'
   const lineH = size * 1.12
   const space = ctx.measureText(' ').width
-  const lines = wrap(ctx, words, CANVAS_W - 120)
+  const words: string[] = []
+  paragraphs.flat().forEach((w) => (words[w.index] = w.text))
+  // Each of the user's lines still wraps if it is too wide.
+  const lines = paragraphs.flatMap((p) =>
+    wrap(
+      ctx,
+      p.map((w) => w.text),
+      CANVAS_W - 120,
+    ).map((line) => line.map((k) => p[k].index)),
+  )
   const top = s.bandOn ? Math.max(30, (videoArea(s).y - lines.length * lineH) / 2) : 110
   lines.forEach((line, li) => {
     const widths = line.map((i) => ctx.measureText(words[i]).width)
