@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
-import type { Clip, Settings, Source } from '../types'
+import type { Clip, Script, Settings, Source, Voiceover } from '../types'
 import { clipDuration, formatTime } from '../timeline'
 import { Section, Tabs } from './ui'
+import { ScriptVoiceTab } from './ScriptVoiceTab'
 
 interface Props {
   clips: Clip[]
@@ -14,21 +15,34 @@ interface Props {
   onSelect: (id: string) => void
   onShuffle: () => void
   onSortCountdown: () => void
+  script: Script
+  voiceId: string
+  voice: Voiceover | null
+  onScript: (s: Script) => void
+  onVoiceId: (id: string) => void
+  onVoice: (v: Voiceover | null) => void
+  onFit: () => void
+  onError: (message: string) => void
 }
 
 export function LeftPanel(props: Props) {
-  const [tab, setTab] = useState<'media' | 'ranking'>('media')
+  const [tab, setTab] = useState<'voice' | 'media' | 'ranking'>('media')
   return (
     <aside className="panel">
       <Tabs
         value={tab}
         onChange={setTab}
         options={[
+          ['voice', 'Guion y voz'],
           ['media', 'Media'],
           ['ranking', 'Ranking'],
         ]}
       />
-      <div className="panel-body">{tab === 'media' ? <MediaTab {...props} /> : <RankingTab {...props} />}</div>
+      <div className="panel-body">
+        {tab === 'voice' && <ScriptVoiceTab {...props} />}
+        {tab === 'media' && <MediaTab {...props} />}
+        {tab === 'ranking' && <RankingTab {...props} />}
+      </div>
     </aside>
   )
 }

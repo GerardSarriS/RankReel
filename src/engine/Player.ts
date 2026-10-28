@@ -1,5 +1,6 @@
-import { CANVAS_H, CANVAS_W, DEFAULT_SETTINGS, type Clip, type Settings, type Source } from '../types'
+import { CANVAS_H, CANVAS_W, DEFAULT_SETTINGS, type Clip, type Settings, type Source, type Word } from '../types'
 import { indexAt, labelForRank, layout, ranksOf, totalDuration, type Placed } from '../timeline'
+import { chunkWords, type CaptionChunk } from '../captions'
 import { drawOverlays, drawVideo } from './draw'
 
 /**
@@ -24,8 +25,19 @@ export class Player {
   private audioCtx: AudioContext | null = null
   private mix: GainNode | null = null
   private monitor: GainNode | null = null
+  private clipGain: GainNode | null = null
+  private voiceGain: GainNode | null = null
   private audioNodes = new Map<string, MediaElementAudioSourceNode>()
   private muted = false
+
+  private voice: AudioBuffer | null = null
+  private voiceNode: AudioBufferSourceNode | null = null
+  /** voice position = voiceOffset + (ctx.currentTime - voiceStartedAt) */
+  private voiceOffset = 0
+  private voiceStartedAt = 0
+
+  private words: Word[] = []
+  private chunks: CaptionChunk[] = []
 
   private listeners = new Set<() => void>()
   private onEnded: (() => void) | null = null
@@ -50,7 +62,9 @@ export class Player {
 
   setData(sources: Source[], clips: Clip[], settings: Settings) {
     this.clips = clips
+    if (settings.captionWords !== this.settings.captionWords) this.chunks = chunkWords(this.words, settings.captionWords)
     this.settings = settings
+    this.applyLevels()
     this.placed = layout(clips)
     for (const s of sources) this.ensureVideo(s)
     for (const [id, v] of this.videos) {
@@ -71,6 +85,18 @@ export class Player {
       this.syncPaused()
     }
     this.emit()
+  }
+
+  setVoice(buffer: AudioBuffer | null) {
+    if (buffer === this.voice) return
+    this.stopVoice()
+    this.voice = buffer
+    this.applyLevels()
+  }
+
+  setCaptions(words: Word[]) {
+    this.words = words
+    this.chunks = chunkWords(words, this.settings.captionWords)
   }
 
   subscribe = (fn: () => void) => {
@@ -94,6 +120,7 @@ export class Player {
 
   pause() {
     this.playing = false
+    this.stopVoice()
     for (const v of this.videos.values()) v.pause()
     this.syncPaused()
     this.emit()
@@ -108,6 +135,7 @@ export class Player {
     this.time = Math.min(Math.max(0, t), this.getDuration())
     if (this.playing) {
       for (const v of this.videos.values()) v.pause()
+      this.stopVoice()
       this.activeIndex = -1
     } else {
       this.syncPaused()
@@ -203,6 +231,11 @@ export class Player {
     if (!this.audioCtx) {
       this.audioCtx = new AudioContext()
       this.mix = this.audioCtx.createGain()
+      this.clipGain = this.audioCtx.createGain()
+      this.voiceGain = this.audioCtx.createGain()
+      this.clipGain.connect(this.mix)
+      this.voiceGain.connect(this.mix)
+      this.applyLevels()
       this.monitor = this.audioCtx.createGain()
       this.monitor.gain.value = this.muted ? 0 : 1
       this.mix.connect(this.monitor)
@@ -213,10 +246,46 @@ export class Player {
   }
 
   private connectAudio(id: string, v: HTMLVideoElement) {
-    if (this.audioNodes.has(id) || !this.audioCtx || !this.mix) return
+    if (this.audioNodes.has(id) || !this.audioCtx || !this.clipGain) return
     const node = this.audioCtx.createMediaElementSource(v)
-    node.connect(this.mix)
+    node.connect(this.clipGain)
     this.audioNodes.set(id, node)
+  }
+
+  /** Clips are ducked under the voice only when there is one. */
+  private applyLevels() {
+    if (this.clipGain) this.clipGain.gain.value = this.voice ? this.settings.clipVolume : 1
+    if (this.voiceGain) this.voiceGain.gain.value = this.settings.voiceVolume
+  }
+
+  private stopVoice() {
+    if (!this.voiceNode) return
+    this.voiceNode.onended = null
+    try {
+      this.voiceNode.stop()
+    } catch {
+      // already stopped
+    }
+    this.voiceNode.disconnect()
+    this.voiceNode = null
+  }
+
+  /** Keeps the voice following the timeline clock (which is driven by the videos). */
+  private syncVoice() {
+    if (!this.voice || !this.audioCtx || !this.voiceGain) return
+    if (this.voiceNode) {
+      const pos = this.voiceOffset + (this.audioCtx.currentTime - this.voiceStartedAt)
+      if (Math.abs(pos - this.time) < 0.25) return
+      this.stopVoice()
+    }
+    if (this.time >= this.voice.duration) return
+    const node = this.audioCtx.createBufferSource()
+    node.buffer = this.voice
+    node.connect(this.voiceGain)
+    node.start(0, this.time)
+    this.voiceNode = node
+    this.voiceOffset = this.time
+    this.voiceStartedAt = this.audioCtx.currentTime
   }
 
   private waitForFrame(sourceId: string) {
@@ -283,6 +352,7 @@ export class Player {
     }
 
     this.time = start + Math.max(0, v.currentTime - clip.trimStart)
+    if (!v.paused && !v.seeking && v.readyState >= 3) this.syncVoice()
 
     // Pre-seek the next clip's video so the cut doesn't stall.
     const next = this.placed[i + 1]
@@ -296,6 +366,7 @@ export class Player {
 
   private finish() {
     this.playing = false
+    this.stopVoice()
     for (const v of this.videos.values()) v.pause()
     this.activeIndex = -1
     this.emit()
@@ -326,7 +397,7 @@ export class Player {
     const labels = new Map(ranks.map((r) => [r, labelForRank(this.clips, r)]))
     const revealed = new Set<number>()
     if (active) for (let k = 0; k <= i; k++) revealed.add(this.placed[k].clip.rank)
-    drawOverlays(ctx, s, { time: this.time, ranks, labels, revealed, activeRank: active?.clip.rank ?? null })
+    drawOverlays(ctx, s, { time: this.time, ranks, labels, revealed, activeRank: active?.clip.rank ?? null, captions: this.chunks })
   }
 }
 

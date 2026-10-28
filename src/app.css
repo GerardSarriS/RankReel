@@ -28,6 +28,7 @@ body {
 
 button,
 input,
+textarea,
 select {
   font: inherit;
   color: inherit;
@@ -447,7 +448,65 @@ input[type='range'] {
 }
 .timeline-inner {
   position: relative;
-  height: 112px;
+  height: 148px;
+}
+.voice-lane {
+  position: absolute;
+  top: 104px;
+  left: 0;
+  right: 0;
+  height: 34px;
+}
+.voice-empty {
+  position: absolute;
+  left: 16px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.voice-seg {
+  position: absolute;
+  top: 0;
+  height: 34px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 8px;
+  background: rgba(255, 230, 0, 0.1);
+  border: 1px solid rgba(255, 230, 0, 0.35);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.voice-seg .mono {
+  color: var(--yellow);
+}
+.voice-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.btn.block {
+  width: 100%;
+  justify-content: center;
+  margin-top: 10px;
+}
+textarea.text-input {
+  resize: vertical;
+  font-weight: 500;
+  line-height: 1.4;
+}
+select.text-input {
+  margin-top: 4px;
 }
 .ruler {
   position: absolute;

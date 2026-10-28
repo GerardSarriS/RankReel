@@ -1,4 +1,5 @@
 import { CANVAS_H, CANVAS_W, type Settings } from '../types'
+import { chunkAt, type CaptionChunk } from '../captions'
 
 export interface OverlayInfo {
   time: number
@@ -8,6 +9,7 @@ export interface OverlayInfo {
   /** Ranks whose clips have already started. */
   revealed: Set<number>
   activeRank: number | null
+  captions: CaptionChunk[]
 }
 
 const fontString = (s: Settings, size: number) => `900 ${size}px "${s.font}", sans-serif`
@@ -133,10 +135,40 @@ function drawSegmentLabel(ctx: CanvasRenderingContext2D, s: Settings, label: str
   })
 }
 
+function drawCaptions(ctx: CanvasRenderingContext2D, s: Settings, chunk: CaptionChunk, t: number) {
+  const size = s.captionSize
+  ctx.font = fontString(s, size)
+  ctx.textBaseline = 'middle'
+  ctx.textAlign = 'left'
+  const words = chunk.words.map((w) => (s.captionUpper ? w.text.toUpperCase() : w.text))
+  // The word being spoken (or the last one already said) is highlighted.
+  let current = -1
+  chunk.words.forEach((w, i) => {
+    if (t >= w.start) current = i
+  })
+  const space = ctx.measureText(' ').width
+  const lines = wrap(ctx, words, CANVAS_W - 140)
+  const lineH = size * 1.15
+  const top = s.captionY * CANVAS_H - ((lines.length - 1) * lineH) / 2
+  lines.forEach((line, li) => {
+    const widths = line.map((i) => ctx.measureText(words[i]).width)
+    let x = (CANVAS_W - (widths.reduce((a, b) => a + b, 0) + space * (line.length - 1))) / 2
+    line.forEach((i, k) => {
+      outlined(ctx, words[i], x, top + li * lineH, size, i === current ? s.highlightColor : s.textColor, s.outlineColor)
+      x += widths[k] + space
+    })
+  })
+}
+
 export function drawOverlays(ctx: CanvasRenderingContext2D, s: Settings, info: OverlayInfo) {
   const showTitle = s.hookOn && (s.rankingOn || info.time < s.hookSeconds)
   let y = 110
   if (showTitle) y = drawTitle(ctx, s, y) + 40
+
+  if (s.captionsOn) {
+    const chunk = chunkAt(info.captions, info.time)
+    if (chunk) drawCaptions(ctx, s, chunk, info.time)
+  }
 
   if (!s.rankingOn) return
   if (s.countdownOn && info.ranks.length) drawCountdown(ctx, s, info, Math.max(y, 160))

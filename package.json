@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.2",
+    "@mintplex-labs/piper-tts-web": "^1.0.5",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

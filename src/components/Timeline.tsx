@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { player } from '../engine/Player'
-import type { Source } from '../types'
+import type { Source, Voiceover } from '../types'
 import { formatTime, type Placed } from '../timeline'
 import { usePlayerTime } from '../usePlayer'
 
@@ -13,19 +13,21 @@ interface Props {
   onReorder: (id: string, toIndex: number) => void
   onSplit: () => void
   onDelete: () => void
+  voice: Voiceover | null
+  onFit: () => void
 }
 
 const PAD = 16
 
-export function Timeline({ placed, sources, selectedId, total, onSelect, onReorder, onSplit, onDelete }: Props) {
+export function Timeline({ placed, sources, selectedId, total, onSelect, onReorder, onSplit, onDelete, voice, onFit }: Props) {
   const [zoom, setZoom] = useState(60) // px per second
   const [dropIndex, setDropIndex] = useState<number | null>(null)
   const time = usePlayerTime()
   const scroller = useRef<HTMLDivElement>(null)
 
-  const width = Math.max(total, 1) * zoom + PAD * 2 + 200
+  const width = Math.max(total, voice?.buffer.duration ?? 0, 1) * zoom + PAD * 2 + 200
   const tickStep = zoom >= 80 ? 1 : zoom >= 30 ? 2 : zoom >= 15 ? 5 : 10
-  const ticks = Array.from({ length: Math.floor((total + 4) / tickStep) + 1 }, (_, i) => i * tickStep)
+  const ticks = Array.from({ length: Math.floor((Math.max(total, voice?.buffer.duration ?? 0) + 4) / tickStep) + 1 }, (_, i) => i * tickStep)
 
   const timeFromEvent = (e: { clientX: number }) => {
     const r = scroller.current!.getBoundingClientRect()
@@ -41,6 +43,9 @@ export function Timeline({ placed, sources, selectedId, total, onSelect, onReord
         </button>
         <button className="btn small" onClick={onDelete} disabled={!selectedId}>
           🗑 Borrar
+        </button>
+        <button className="btn small" onClick={onFit} disabled={!voice || !placed.length}>
+          ⟳ Ajustar a la voz
         </button>
         <span className="spacer" />
         <span className="mono dim">
@@ -108,9 +113,26 @@ export function Timeline({ placed, sources, selectedId, total, onSelect, onReord
                 <span className="mono dim">{formatTime(p.end - p.start, false)}</span>
               </div>
             ))}
-            {dropIndex === placed.length && placed.length > 0 && (
-              <span className="drop-marker end" style={{ left: PAD + total * zoom }} />
+            {dropIndex === placed.length && placed.length > 0 && <span className="drop-marker end" style={{ left: PAD + total * zoom }} />}
+          </div>
+
+          <div className="voice-lane">
+            {!voice && <span className="voice-empty mono">SIN VOZ EN OFF: genera una en «Guion y voz» y los clips tendrán algo contra lo que cortar</span>}
+            {voice && !voice.segments && (
+              <div className="voice-seg" style={{ left: PAD, width: voice.buffer.duration * zoom - 2 }}>
+                <span className="mono">{voice.name}</span>
+              </div>
             )}
+            {voice?.segments?.map((seg, i) => (
+              <div
+                key={i}
+                className="voice-seg"
+                style={{ left: PAD + seg.start * zoom, width: Math.max(2, (seg.end - seg.start) * zoom - 2) }}
+                title={seg.text}
+              >
+                <span className="mono">{seg.rank === null ? 'Intro' : `#${seg.rank}`}</span> {seg.text}
+              </div>
+            ))}
           </div>
 
           <div className="playhead" style={{ left: PAD + time * zoom }} />

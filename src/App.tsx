@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { player } from './engine/Player'
-import { DEFAULT_SETTINGS, type Clip, type Settings, type Source } from './types'
+import { DEFAULT_SETTINGS, type Captions, type Clip, type Script, type Settings, type Source, type Voiceover } from './types'
 import { formatTime, layout, totalDuration, uid } from './timeline'
 import { labelFromName, loadSource } from './media'
+import { fitToVoice } from './script'
+import { estimateWords } from './captions'
+import { VOICES } from './voice/tts'
 import { LeftPanel } from './components/LeftPanel'
 import { RightPanel } from './components/RightPanel'
 import { Preview } from './components/Preview'
@@ -17,8 +20,27 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [rendering, setRendering] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [script, setScript] = useState<Script>({ intro: null, items: {} })
+  const [voiceId, setVoiceId] = useState(VOICES[0].id)
+  const [voice, setVoiceState] = useState<Voiceover | null>(null)
+  const [captions, setCaptions] = useState<Captions | null>(null)
 
   useEffect(() => player.setData(sources, clips, settings), [sources, clips, settings])
+  useEffect(() => player.setVoice(voice?.buffer ?? null), [voice])
+  useEffect(() => player.setCaptions(captions?.words ?? []), [captions])
+
+  /** A new voice brings its own captions when we know what it says. */
+  const setVoice = (v: Voiceover | null) => {
+    setVoiceState(v)
+    setCaptions(v?.segments ? { words: estimateWords(v.segments), origin: 'script' } : null)
+  }
+
+  const fit = () => {
+    if (!voice) return
+    const result = fitToVoice(clips, sources, voice)
+    setClips(result.clips)
+    if (result.warning) setError(result.warning)
+  }
 
   const updateSettings = useCallback((patch: Partial<Settings>) => setSettings((s) => ({ ...s, ...patch })), [])
 
@@ -119,7 +141,7 @@ export default function App() {
   const placed = layout(clips)
   const total = totalDuration(placed)
   const selectedPlaced = placed.find((p) => p.clip.id === selectedId) ?? null
-  const selectedSource = selectedPlaced ? sources.find((s) => s.id === selectedPlaced.clip.sourceId) ?? null : null
+  const selectedSource = selectedPlaced ? (sources.find((s) => s.id === selectedPlaced.clip.sourceId) ?? null) : null
 
   return (
     <div className="app">
@@ -149,9 +171,25 @@ export default function App() {
           onSelect={setSelectedId}
           onShuffle={shuffle}
           onSortCountdown={sortCountdown}
+          script={script}
+          voiceId={voiceId}
+          voice={voice}
+          onScript={setScript}
+          onVoiceId={setVoiceId}
+          onVoice={setVoice}
+          onFit={fit}
+          onError={setError}
         />
         <Preview onAddFiles={addFiles} hasClips={clips.length > 0} />
-        <RightPanel settings={settings} onSettings={updateSettings} />
+        <RightPanel
+          settings={settings}
+          voice={voice}
+          voiceId={voiceId}
+          captions={captions}
+          onSettings={updateSettings}
+          onCaptions={setCaptions}
+          onError={setError}
+        />
       </main>
 
       <section className="timeline-area">
@@ -164,13 +202,11 @@ export default function App() {
           onReorder={reorder}
           onSplit={splitAtPlayhead}
           onDelete={() => selectedId && deleteClip(selectedId)}
+          voice={voice}
+          onFit={fit}
         />
         {selectedPlaced && selectedSource && (
-          <ClipInspector
-            placed={selectedPlaced}
-            source={selectedSource}
-            onChange={(patch) => updateClip(selectedPlaced.clip.id, patch)}
-          />
+          <ClipInspector placed={selectedPlaced} source={selectedSource} onChange={(patch) => updateClip(selectedPlaced.clip.id, patch)} />
         )}
       </section>
 
