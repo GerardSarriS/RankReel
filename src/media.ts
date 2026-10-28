@@ -26,10 +26,3 @@ export function loadSource(file: File): Promise<Source> {
     v.src = url
   })
 }
-
-/** Turns "my_clip-final.mp4" into "my clip final". */
-export const labelFromName = (name: string) =>
-  name
-    .replace(/\.[^.]+$/, '')
-    .replace(/[_-]+/g, ' ')
-    .trim()

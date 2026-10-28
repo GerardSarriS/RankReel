@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { player } from './engine/Player'
 import { DEFAULT_SETTINGS, type Captions, type Clip, type Script, type Settings, type Source, type Voiceover } from './types'
 import { formatTime, layout, totalDuration, uid } from './timeline'
-import { labelFromName, loadSource } from './media'
+import { loadSource } from './media'
 import { fitToVoice } from './script'
 import { estimateWords } from './captions'
 import { VOICES } from './voice/tts'
@@ -67,7 +67,8 @@ export default function App() {
         trimStart: 0,
         trimEnd: src.duration,
         rank: ++maxRank,
-        label: labelFromName(src.name),
+        // The name shown in the ranking is written by the user, never taken from the file.
+        label: '',
       }))
       return [...cs, ...added]
     })

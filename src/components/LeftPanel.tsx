@@ -52,7 +52,7 @@ function MediaTab({ clips, sources, selectedId, onAddFiles, onSelect }: Props) {
   const input = useRef<HTMLInputElement>(null)
   return (
     <>
-      <Section title="Vídeos" description="Sube los vídeos del ranking. El orden, los puestos y las etiquetas se cambian en la pestaña Ranking.">
+      <Section title="Vídeos" description="Sube los vídeos del ranking. Los nombres del ranking, los puestos y el orden se ponen en la pestaña Ranking.">
         <button className="btn" onClick={() => input.current?.click()}>
           ＋ Añadir vídeos
         </button>
@@ -143,7 +143,7 @@ function ClipOrder({ clips, sources, selectedId, onUpdateClip, onSelect, onReord
           <div className="clip-meta">
             <input
               value={c.label}
-              placeholder="Etiqueta"
+              placeholder="Nombre en el ranking…"
               onChange={(e) => onUpdateClip(c.id, { label: e.target.value })}
               onClick={(e) => e.stopPropagation()}
             />
@@ -183,7 +183,10 @@ function RankingTab(props: Props) {
         description="Elementos de cuenta atrás para vídeos tipo Top 5. Al activarlo, el título también se queda en pantalla todo el vídeo."
         toggle={{ value: s.rankingOn, onChange: (v) => onSettings({ rankingOn: v }) }}
       />
-      <Section title="Orden de los clips" description="Arrastra o usa las flechas para cambiar el orden. Cada puesto se queda con su clip.">
+      <Section
+        title="Orden de los clips"
+        description="Escribe el nombre que saldrá en el ranking y arrastra o usa las flechas para cambiar el orden. Cada puesto se queda con su clip."
+      >
         <div className="row">
           <button className="btn small" disabled={clips.length < 2} onClick={onShuffle}>
             ⤮ Barajar
