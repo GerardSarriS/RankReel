@@ -15,6 +15,7 @@ Editor web para crear vídeos de rankings verticales (Top 5, Top 10…) listos p
   - 1080×1920, con el clip rellenando o ajustado al lienzo y color de fondo;
   - título gancho con palabras resaltadas;
   - fuentes Archivo, Rubik, Anton y Bebas Neue, con tamaño y colores.
+- **Desde TikTok:** pegas el enlace de un TikTok y se añade como clip o se descarga en MP4 sin marca de agua (función `api/tiktok.ts`).
 - **Guion y voz:** voz en off generada en el navegador (Piper), subida o grabada; «Ajustar a la voz» corta los clips contra ella.
 - **Subtítulos:** sincronizados con la voz, estimados desde el guion o transcritos con Whisper.
 - **Sonidos:** biblioteca de 21 efectos sintetizados en el navegador (transiciones, impactos, ranking, juego y humor, interfaz), tus propios sonidos, una pista de efectos en el timeline y un efecto automático en cada cambio de puesto.
@@ -28,6 +29,8 @@ npm run dev     # http://localhost:5173
 npm run build   # comprobación de tipos y build de producción en dist/
 npm run lint
 ```
+
+La función `api/tiktok.ts` funciona en `npm run dev` y `npm run preview` (Vite la sirve) y en Vercel como Vercel Function. En un hosting solo estático, la importación desde TikTok no está disponible.
 
 ## Cómo está hecho
 

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { PRESET_COLORS, type Clip, type Script, type Settings, type Source, type Voiceover } from '../types'
 import { clipDuration, formatTime, ranksOf } from '../timeline'
+import { downloadTikTok } from '../media'
 import { Field, Section, Swatches, Tabs } from './ui'
 import { ScriptVoiceTab } from './ScriptVoiceTab'
 import { SoundsTab } from './SoundsTab'
@@ -12,7 +13,7 @@ interface Props {
   settings: Settings
   selectedId: string | null
   onSettings: (patch: Partial<Settings>) => void
-  onAddFiles: (files: FileList) => void
+  onAddFiles: (files: FileList | File[]) => void
   onUpdateClip: (id: string, patch: Partial<Clip>) => void
   onSelect: (id: string) => void
   onShuffle: () => void
@@ -55,7 +56,61 @@ export function LeftPanel(props: Props) {
   )
 }
 
-function MediaTab({ clips, sources, selectedId, onAddFiles, onSelect }: Props) {
+function TikTokImport({ onAddFiles, onError }: Props) {
+  const [link, setLink] = useState('')
+  const [busy, setBusy] = useState<{ mode: 'import' | 'save'; progress: number | null } | null>(null)
+
+  const run = async (mode: 'import' | 'save') => {
+    if (!link.trim()) return
+    setBusy({ mode, progress: null })
+    try {
+      const file = await downloadTikTok(link, (progress) => setBusy({ mode, progress }))
+      if (mode === 'import') onAddFiles([file])
+      else {
+        const url = URL.createObjectURL(file)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = file.name
+        a.click()
+        setTimeout(() => URL.revokeObjectURL(url), 10_000)
+      }
+      setLink('')
+    } catch (e) {
+      onError((e as Error).message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const label = (mode: 'import' | 'save', idle: string) =>
+    busy?.mode === mode ? (busy.progress === null ? 'Descargando…' : `Descargando… ${Math.round(busy.progress * 100)}%`) : idle
+
+  return (
+    <Section title="Desde TikTok" description="Pega el enlace de un TikTok y se convierte a MP4 sin marca de agua.">
+      <input
+        className="text-input"
+        type="url"
+        placeholder="https://www.tiktok.com/@usuario/video/…"
+        value={link}
+        onChange={(e) => setLink(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && void run('import')}
+        disabled={!!busy}
+      />
+      <div className="row" style={{ marginTop: 8 }}>
+        <button className="btn small primary" disabled={!link.trim() || !!busy} onClick={() => run('import')}>
+          {label('import', '＋ Añadir como clip')}
+        </button>
+        <button className="btn small" disabled={!link.trim() || !!busy} onClick={() => run('save')}>
+          {label('save', '⇩ Descargar MP4')}
+        </button>
+      </div>
+      <p className="note mono">Usa solo vídeos que tengas permiso para reutilizar.</p>
+    </Section>
+  )
+}
+
+function MediaTab(props: Props) {
+  const { clips, sources, selectedId, onAddFiles, onSelect } = props
   const input = useRef<HTMLInputElement>(null)
   return (
     <>
@@ -75,6 +130,7 @@ function MediaTab({ clips, sources, selectedId, onAddFiles, onSelect }: Props) {
           }}
         />
       </Section>
+      <TikTokImport {...props} />
       {sources.length > 0 && (
         <ul className="clip-list">
           {sources.map((src) => {
