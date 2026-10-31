@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { CircleAlert, Clock, Download, Film, RectangleVertical, ShieldCheck, X } from 'lucide-react'
 import { player } from './engine/Player'
 import { DEFAULT_SETTINGS, type Captions, type Clip, type PlacedSfx, type Script, type Settings, type Source, type Voiceover } from './types'
@@ -16,6 +16,8 @@ import { Preview } from './components/Preview'
 import { Timeline } from './components/Timeline'
 import { ClipInspector } from './components/ClipInspector'
 import { RenderDialog } from './components/RenderDialog'
+import { Splitter } from './components/Splitter'
+import { useLayout } from './useLayout'
 
 export default function App() {
   const [sources, setSources] = useState<Source[]>([])
@@ -31,6 +33,8 @@ export default function App() {
   const [sfx, setSfx] = useState<PlacedSfx[]>([])
   const [customSfx, setCustomSfx] = useState<SfxDef[]>([])
   const [selectedSfxId, setSelectedSfxId] = useState<string | null>(null)
+  const { sizes, resize } = useLayout()
+  const timelineArea = useRef<HTMLElement>(null)
 
   useEffect(() => {
     loadBuiltinSfx().catch(() => setError('No se han podido preparar los efectos de sonido.'))
@@ -192,8 +196,14 @@ export default function App() {
   const selectedPlaced = placed.find((p) => p.clip.id === selectedId) ?? null
   const selectedSource = selectedPlaced ? (sources.find((s) => s.id === selectedPlaced.clip.sourceId) ?? null) : null
 
+  const layoutVars = {
+    '--left-w': `${sizes.left}px`,
+    '--right-w': `${sizes.right}px`,
+    ...(sizes.timeline !== null && { '--timeline-h': `${sizes.timeline}px` }),
+  } as CSSProperties
+
   return (
-    <div className="app">
+    <div className="app" style={layoutVars}>
       <header className="topbar">
         <div className="brand">
           <Logo />
@@ -252,7 +262,23 @@ export default function App() {
           onAddSfx={addSfx}
           onUploadSfx={uploadSfx}
         />
+        <Splitter
+          axis="x"
+          label="Ancho del panel izquierdo"
+          direction={1}
+          getSize={() => sizes.left}
+          onResize={(v) => resize('left', v)}
+          onReset={() => resize('left', null)}
+        />
         <Preview onAddFiles={addFiles} hasClips={clips.length > 0} />
+        <Splitter
+          axis="x"
+          label="Ancho del panel derecho"
+          direction={-1}
+          getSize={() => sizes.right}
+          onResize={(v) => resize('right', v)}
+          onReset={() => resize('right', null)}
+        />
         <RightPanel
           settings={settings}
           voice={voice}
@@ -264,7 +290,16 @@ export default function App() {
         />
       </main>
 
-      <section className="timeline-area">
+      <Splitter
+        axis="y"
+        label="Alto del timeline"
+        direction={-1}
+        getSize={() => sizes.timeline ?? timelineArea.current?.offsetHeight ?? 240}
+        onResize={(v) => resize('timeline', v)}
+        onReset={() => resize('timeline', null)}
+      />
+
+      <section className={sizes.timeline !== null ? 'timeline-area sized' : 'timeline-area'} ref={timelineArea}>
         <Timeline
           placed={placed}
           sources={sources}

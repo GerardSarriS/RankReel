@@ -117,14 +117,19 @@ button {
    ========================================================================== */
 
 .app {
+  --left-w: 300px;
+  --right-w: 320px;
   display: grid;
-  grid-template-rows: 56px minmax(0, 1fr) auto;
+  /* topbar · workspace · splitter · timeline (auto unless the user resized it) */
+  grid-template-rows: 64px minmax(0, 1fr) 8px auto;
   /* Without this the grid grows to fit the timeline's full width. */
   grid-template-columns: minmax(0, 1fr);
   max-width: 100vw;
   height: 100vh;
-  gap: 8px;
   padding: 0 8px 8px;
+}
+.app > .topbar {
+  height: 56px;
 }
 
 .topbar {
@@ -290,8 +295,7 @@ button {
 
 .workspace {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) 320px;
-  gap: 8px;
+  grid-template-columns: auto 8px minmax(0, 1fr) 8px var(--right-w);
   min-height: 0;
 }
 
@@ -306,7 +310,7 @@ button {
 
 .sidebar {
   display: grid;
-  grid-template-columns: 68px 300px;
+  grid-template-columns: 68px var(--left-w);
   min-height: 0;
   overflow: hidden;
 }
@@ -1140,6 +1144,70 @@ select.text-input {
   min-width: 0;
   overflow: hidden;
 }
+.timeline-area.sized {
+  height: var(--timeline-h);
+  overflow-y: auto;
+}
+
+/* Draggable dividers between blocks */
+.splitter {
+  position: relative;
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  outline: none;
+}
+.splitter-x {
+  cursor: col-resize;
+}
+.splitter-y {
+  cursor: row-resize;
+}
+.splitter span {
+  border-radius: 999px;
+  background: transparent;
+  transition:
+    background 120ms var(--ease),
+    width 120ms var(--ease),
+    height 120ms var(--ease);
+}
+.splitter-x span {
+  width: 2px;
+  height: 32px;
+}
+.splitter-y span {
+  width: 32px;
+  height: 2px;
+}
+.splitter:hover span,
+.splitter:focus-visible span {
+  background: var(--line-3);
+}
+.splitter-x:hover span,
+.splitter-x:focus-visible span,
+body.resizing-x .splitter-x span {
+  height: 56px;
+}
+.splitter-y:hover span,
+.splitter-y:focus-visible span,
+body.resizing-y .splitter-y span {
+  width: 56px;
+}
+body.resizing-x .splitter-x:active span,
+body.resizing-y .splitter-y:active span,
+.splitter:focus-visible span {
+  background: var(--accent);
+}
+body.resizing-x,
+body.resizing-x * {
+  cursor: col-resize !important;
+  user-select: none;
+}
+body.resizing-y,
+body.resizing-y * {
+  cursor: row-resize !important;
+  user-select: none;
+}
 .timeline-bar {
   display: flex;
   align-items: center;
@@ -1629,6 +1697,16 @@ select.text-input {
   .app {
     height: auto;
     grid-template-rows: auto auto auto;
+    row-gap: 8px;
+  }
+  .app > .topbar {
+    height: auto;
+  }
+  .splitter {
+    display: none;
+  }
+  .timeline-area.sized {
+    height: auto;
   }
   .topbar {
     grid-template-columns: 1fr auto;
