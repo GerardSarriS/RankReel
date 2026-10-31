@@ -23,6 +23,8 @@ export interface Clip {
   label: string
 }
 
+export type WatermarkPosition = 'top-left' | 'top' | 'top-right' | 'bottom-left' | 'bottom' | 'bottom-right'
+
 export interface Settings {
   rankingOn: boolean
   badgeOn: boolean
@@ -66,6 +68,18 @@ export interface Settings {
   /** Vertical position of the captions, 0 (top) to 1 (bottom). */
   captionY: number
   captionUpper: boolean
+
+  watermarkOn: boolean
+  watermarkType: 'text' | 'image'
+  watermarkText: string
+  /** Logo as a data URL, so it lives with the rest of the settings. */
+  watermarkImage: string | null
+  watermarkPosition: WatermarkPosition
+  /** Text height, or image width, in px on the 1080×1920 canvas. */
+  watermarkSize: number
+  watermarkOpacity: number
+  /** Jump between corners every few seconds, so it's harder to crop out. */
+  watermarkMoving: boolean
 
   voiceVolume: number
   clipVolume: number
@@ -111,6 +125,15 @@ export const DEFAULT_SETTINGS: Settings = {
   captionSize: 84,
   captionY: 0.7,
   captionUpper: true,
+
+  watermarkOn: false,
+  watermarkType: 'text',
+  watermarkText: '@tuusuario',
+  watermarkImage: null,
+  watermarkPosition: 'bottom-right',
+  watermarkSize: 44,
+  watermarkOpacity: 0.7,
+  watermarkMoving: false,
 
   voiceVolume: 1,
   clipVolume: 0.35,

@@ -787,6 +787,56 @@ select.text-input {
   color: var(--accent);
 }
 
+/* Watermark */
+.watermark-text,
+.watermark-drop {
+  margin-top: 8px;
+}
+.watermark-drop img {
+  max-width: 120px;
+  max-height: 48px;
+  margin-bottom: 4px;
+  object-fit: contain;
+}
+/* Six spots on a mini 9:16 frame: top row and bottom row */
+.position-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: 1fr 2.2fr 1fr;
+  width: 72px;
+  aspect-ratio: 9 / 16;
+  padding: 6px;
+  gap: 4px;
+  border-radius: var(--r);
+  border: 1px solid var(--line-2);
+  background: var(--surface-2);
+}
+.position-grid button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+}
+.position-grid button:nth-child(n + 4) {
+  grid-row: 3;
+}
+.position-grid button span {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--surface-4);
+  transition: background 120ms var(--ease);
+}
+.position-grid button:hover span {
+  background: var(--text-3);
+}
+.position-grid button.on span {
+  width: 14px;
+  background: var(--accent);
+}
+
 /* ==========================================================================
    Lists (clips, files, sounds)
    ========================================================================== */

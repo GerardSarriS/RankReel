@@ -17,6 +17,7 @@ Editor web para crear vídeos de rankings verticales (Top 5, Top 10…) listos p
   - 1080×1920, con el clip rellenando o ajustado al lienzo y color de fondo;
   - título gancho con palabras resaltadas;
   - fuentes Archivo, Rubik, Anton y Bebas Neue, con tamaño y colores.
+- **Marca de agua:** texto o logo, en una de seis posiciones o saltando de esquina cada 4 s, con tamaño y opacidad.
 - **Desde TikTok:** pegas el enlace de un TikTok y se añade como clip o se descarga en MP4 sin marca de agua (función `api/tiktok.ts`).
 - **Guion y voz:** voz en off generada en el navegador (Piper), subida o grabada; «Ajustar a la voz» corta los clips contra ella.
 - **Subtítulos:** sincronizados con la voz, estimados desde el guion o transcritos con Whisper.

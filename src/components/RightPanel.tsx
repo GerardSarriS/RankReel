@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { FONTS, PRESET_COLORS, type Captions, type Settings, type Voiceover } from '../types'
+import { useRef, useState } from 'react'
+import { ImageUp } from 'lucide-react'
+import { FONTS, PRESET_COLORS, type Captions, type Settings, type Voiceover, type WatermarkPosition } from '../types'
 import { CaptionsTab } from './CaptionsTab'
 import { titleLines } from '../timeline'
-import { ColorInput, Field, Section, Swatches, Tabs, Range } from './ui'
+import { ColorInput, Field, Section, Swatches, Tabs, Range, Toggle } from './ui'
 
 interface Props {
   settings: Settings
@@ -133,6 +134,8 @@ function CanvasTab({ settings: s, onSettings }: Props) {
         )}
       </Section>
 
+      <WatermarkSection settings={s} onSettings={onSettings} />
+
       <Section title="Texto">
         <Field label="Fuente">
           <Tabs value={s.font} onChange={(font) => onSettings({ font })} options={FONTS.map((f) => [f, f.split(' ')[0]])} />
@@ -148,5 +151,98 @@ function CanvasTab({ settings: s, onSettings }: Props) {
         </Field>
       </Section>
     </>
+  )
+}
+
+const POSITIONS: [WatermarkPosition, string][] = [
+  ['top-left', 'Arriba a la izquierda'],
+  ['top', 'Arriba en el centro'],
+  ['top-right', 'Arriba a la derecha'],
+  ['bottom-left', 'Abajo a la izquierda'],
+  ['bottom', 'Abajo en el centro'],
+  ['bottom-right', 'Abajo a la derecha'],
+]
+
+function WatermarkSection({ settings: s, onSettings }: Pick<Props, 'settings' | 'onSettings'>) {
+  const input = useRef<HTMLInputElement>(null)
+
+  const loadImage = (file: File) => {
+    const reader = new FileReader()
+    reader.onload = () => onSettings({ watermarkImage: reader.result as string, watermarkType: 'image' })
+    reader.readAsDataURL(file)
+  }
+
+  return (
+    <Section
+      title="Marca de agua"
+      description="Tu nombre o logo encima de todo el vídeo, para que se sepa de quién es si lo republican."
+      toggle={{ value: s.watermarkOn, onChange: (v) => onSettings({ watermarkOn: v }) }}
+    >
+      {s.watermarkOn && (
+        <>
+          <Tabs
+            value={s.watermarkType}
+            onChange={(watermarkType) => onSettings({ watermarkType })}
+            options={[
+              ['text', 'Texto'],
+              ['image', 'Imagen'],
+            ]}
+          />
+          {s.watermarkType === 'text' ? (
+            <input
+              className="text-input watermark-text"
+              value={s.watermarkText}
+              placeholder="@tuusuario"
+              onChange={(e) => onSettings({ watermarkText: e.target.value })}
+            />
+          ) : (
+            <>
+              <button className="dropzone watermark-drop" onClick={() => input.current?.click()}>
+                {s.watermarkImage ? <img src={s.watermarkImage} alt="Logo de la marca de agua" /> : <ImageUp size={18} strokeWidth={1.75} />}
+                <strong>{s.watermarkImage ? 'Cambiar logo' : 'Subir logo'}</strong>
+                <span>PNG con fondo transparente</span>
+              </button>
+              <input
+                ref={input}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) loadImage(f)
+                  e.target.value = ''
+                }}
+              />
+            </>
+          )}
+          <Toggle label="Saltar de esquina cada 4 s" checked={s.watermarkMoving} onChange={(v) => onSettings({ watermarkMoving: v })} />
+          {!s.watermarkMoving && (
+            <Field label="Posición">
+              <div className="position-grid" role="radiogroup" aria-label="Posición">
+                {POSITIONS.map(([p, label]) => (
+                  <button
+                    key={p}
+                    role="radio"
+                    aria-checked={s.watermarkPosition === p}
+                    aria-label={label}
+                    title={label}
+                    className={s.watermarkPosition === p ? 'on' : ''}
+                    onClick={() => onSettings({ watermarkPosition: p })}
+                  >
+                    <span />
+                  </button>
+                ))}
+              </div>
+            </Field>
+          )}
+          <Field label="Tamaño" value={s.watermarkSize}>
+            <Range min={20} max={120} value={s.watermarkSize} onChange={(e) => onSettings({ watermarkSize: Number(e.target.value) })} />
+          </Field>
+          <Field label="Opacidad" value={`${Math.round(s.watermarkOpacity * 100)}%`}>
+            <Range min={0.1} max={1} step={0.05} value={s.watermarkOpacity} onChange={(e) => onSettings({ watermarkOpacity: Number(e.target.value) })} />
+          </Field>
+        </>
+      )}
+    </Section>
   )
 }

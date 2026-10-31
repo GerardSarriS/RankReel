@@ -1,4 +1,4 @@
-import { CANVAS_H, CANVAS_W, type Settings } from '../types'
+import { CANVAS_H, CANVAS_W, type Settings, type WatermarkPosition } from '../types'
 import { chunkAt, type CaptionChunk } from '../captions'
 import { titleLines } from '../timeline'
 
@@ -187,7 +187,61 @@ function drawCaptions(ctx: CanvasRenderingContext2D, s: Settings, chunk: Caption
   })
 }
 
+const images = new Map<string, HTMLImageElement>()
+
+/** Decoded logo for a data URL; null until it has loaded (the next frame picks it up). */
+function imageFor(src: string): HTMLImageElement | null {
+  let img = images.get(src)
+  if (!img) {
+    img = new Image()
+    img.src = src
+    images.clear()
+    images.set(src, img)
+  }
+  return img.complete && img.naturalWidth ? img : null
+}
+
+const CORNERS: WatermarkPosition[] = ['top-left', 'bottom-right', 'top-right', 'bottom-left']
+
+function drawWatermark(ctx: CanvasRenderingContext2D, s: Settings, time: number) {
+  const pos = s.watermarkMoving ? CORNERS[Math.floor(time / 4) % CORNERS.length] : s.watermarkPosition
+  const margin = 48
+  let w: number
+  let h: number
+  let img: HTMLImageElement | null = null
+  if (s.watermarkType === 'image') {
+    if (!s.watermarkImage || !(img = imageFor(s.watermarkImage))) return
+    w = s.watermarkSize * 4
+    h = (w * img.naturalHeight) / img.naturalWidth
+  } else {
+    if (!s.watermarkText.trim()) return
+    ctx.font = fontString(s, s.watermarkSize)
+    w = ctx.measureText(s.watermarkText).width
+    h = s.watermarkSize
+  }
+  const x = pos.endsWith('left') ? margin : pos.endsWith('right') ? CANVAS_W - margin - w : (CANVAS_W - w) / 2
+  // Top: in the margin above the title. Bottom: clear of TikTok's own caption and buttons.
+  const y = pos.startsWith('top') ? 36 : CANVAS_H - 260 - h
+
+  ctx.save()
+  ctx.globalAlpha = s.watermarkOpacity
+  if (img) ctx.drawImage(img, x, y, w, h)
+  else {
+    ctx.textBaseline = 'top'
+    ctx.textAlign = 'left'
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'
+    ctx.shadowBlur = s.watermarkSize * 0.25
+    outlined(ctx, s.watermarkText, x, y, s.watermarkSize * 0.6, s.textColor, s.outlineColor)
+  }
+  ctx.restore()
+}
+
 export function drawOverlays(ctx: CanvasRenderingContext2D, s: Settings, info: OverlayInfo) {
+  drawContent(ctx, s, info)
+  if (s.watermarkOn) drawWatermark(ctx, s, info.time)
+}
+
+function drawContent(ctx: CanvasRenderingContext2D, s: Settings, info: OverlayInfo) {
   drawBand(ctx, s)
   if (s.hookOn && (s.rankingOn || info.time < s.hookSeconds)) drawTitle(ctx, s)
 
