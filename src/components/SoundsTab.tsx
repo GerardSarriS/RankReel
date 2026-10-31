@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Settings } from '../types'
 import { BUILTIN_SFX, sfxBuffer, type SfxDef } from '../sfx/library'
 import { player } from '../engine/Player'
-import { Play, Plus, Upload } from 'lucide-react'
+import { Play, Plus, Square, Upload } from 'lucide-react'
+import { usePreviewId } from '../usePlayer'
 import { SfxIcon } from '../sfx/SfxIcon'
 import { Field, Section, Range } from './ui'
 
@@ -21,9 +22,12 @@ export function SoundsTab({ settings: s, customSfx, onSettings, onAddSfx, onUplo
   const input = useRef<HTMLInputElement>(null)
   const shown = category ? all.filter((x) => x.category === category) : all
 
+  const previewing = usePreviewId()
+  // Leaving the tab stops whatever is being previewed.
+  useEffect(() => () => player.stopPreview(), [])
   const preview = (id: string) => {
     const b = sfxBuffer(id)
-    if (b) player.preview(b)
+    if (b) player.togglePreview(id, b)
   }
 
   return (
@@ -42,13 +46,13 @@ export function SoundsTab({ settings: s, customSfx, onSettings, onAddSfx, onUplo
       </Section>
       <ul className="sfx-list">
         {shown.map((x) => (
-          <li key={x.id}>
+          <li key={x.id} className={previewing === x.id ? 'playing' : ''}>
             <span className="sfx-icon">
               <SfxIcon id={x.id} />
             </span>
             <span className="ellipsis">{x.name}</span>
-            <button className="icon-btn" onClick={() => preview(x.id)} aria-label={`Escuchar ${x.name}`}>
-              <Play size={14} />
+            <button className="icon-btn" onClick={() => preview(x.id)} aria-label={previewing === x.id ? `Parar ${x.name}` : `Escuchar ${x.name}`}>
+              {previewing === x.id ? <Square size={12} fill="currentColor" /> : <Play size={14} />}
             </button>
             <button className="icon-btn" onClick={() => onAddSfx(x.id)} aria-label={`Añadir ${x.name}`}>
               <Plus size={15} />

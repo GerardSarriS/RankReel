@@ -5,3 +5,4 @@ export const usePlayerTime = () => useSyncExternalStore(player.subscribe, player
 export const usePlayerPlaying = () => useSyncExternalStore(player.subscribe, player.isPlaying)
 export const usePlayerMuted = () => useSyncExternalStore(player.subscribe, player.isMuted)
 export const usePlayerDuration = () => useSyncExternalStore(player.subscribe, player.getDuration)
+export const usePreviewId = () => useSyncExternalStore(player.subscribe, player.getPreviewId)

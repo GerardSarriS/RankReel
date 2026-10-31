@@ -8,7 +8,7 @@ import { fitToVoice } from './script'
 import { estimateWords } from './captions'
 import { VOICES } from './voice/tts'
 import { decodeBlob } from './voice/audio'
-import { BUILTIN_SFX, loadBuiltinSfx, registerSfxBuffer, type SfxDef } from './sfx/library'
+import { BUILTIN_SFX, loadBuiltinSfx, registerSfxBuffer, sfxBuffer, type SfxDef } from './sfx/library'
 import { SfxInspector } from './components/SfxInspector'
 import { LeftPanel } from './components/LeftPanel'
 import { RightPanel } from './components/RightPanel'
@@ -35,6 +35,8 @@ export default function App() {
   const [selectedSfxId, setSelectedSfxId] = useState<string | null>(null)
   const { sizes, resize } = useLayout()
   const timelineArea = useRef<HTMLElement>(null)
+  /** Latest selection-aware actions for the global keyboard shortcuts. */
+  const keyActions = useRef({ deleteSelected: () => {}, deselect: () => {} })
 
   useEffect(() => {
     loadBuiltinSfx().catch(() => setError('No se han podido preparar los efectos de sonido.'))
@@ -112,7 +114,8 @@ export default function App() {
   }
 
   const addSfx = (sfxId: string) => {
-    const placedSfx: PlacedSfx = { id: uid(), sfxId, time: player.getTime(), volume: 1 }
+    const length = sfxBuffer(sfxId)?.duration ?? 1
+    const placedSfx: PlacedSfx = { id: uid(), sfxId, time: player.getTime(), volume: 1, offset: 0, length }
     setSfx((list) => [...list, placedSfx])
     selectSfx(placedSfx.id)
   }
@@ -180,15 +183,36 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return
+      // Typing never triggers shortcuts. A focused button doesn't steal the space bar either.
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.metaKey || e.ctrlKey || e.altKey) return
       if (e.code === 'Space') {
         e.preventDefault()
         player.toggle()
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault()
+        keyActions.current.deleteSelected()
+      } else if (e.key === 'Escape') {
+        keyActions.current.deselect()
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        if ((e.target as HTMLElement).closest('[role="separator"]')) return
+        e.preventDefault()
+        const step = (e.shiftKey ? 1 : 0.1) * (e.key === 'ArrowLeft' ? -1 : 1)
+        player.seek(player.getTime() + step)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  useEffect(() => {
+    keyActions.current = {
+      deleteSelected,
+      deselect: () => {
+        setSelectedId(null)
+        setSelectedSfxId(null)
+      },
+    }
+  })
 
   const placed = layout(clips)
   const total = totalDuration(placed)
@@ -316,7 +340,8 @@ export default function App() {
           transitionSfx={settings.transitionSfx}
           selectedSfxId={selectedSfxId}
           onSelectSfx={selectSfx}
-          onMoveSfx={(id, time) => updateSfx(id, { time })}
+          onChangeSfx={updateSfx}
+          onTrimClip={updateClip}
         />
         {selectedSfx && (
           <SfxInspector

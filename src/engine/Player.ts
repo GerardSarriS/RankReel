@@ -40,6 +40,8 @@ export class Player {
   private sfx: PlacedSfx[] = []
   private sfxGain: GainNode | null = null
   private sfxNodes = new Set<AudioBufferSourceNode>()
+  private previewNode: AudioBufferSourceNode | null = null
+  private previewId: string | null = null
   /** Effects between sfxCursor and the playhead have already been fired. */
   private sfxCursor = 0
 
@@ -106,15 +108,44 @@ export class Player {
   }
 
   /** Plays an effect straight to the speakers (not recorded), for the library's preview button. */
-  preview(buffer: AudioBuffer) {
+  /** Plays (or, if it is already playing, stops) a library sound. Only one preview sounds at a time. */
+  togglePreview(id: string, buffer: AudioBuffer) {
+    const wasThis = this.previewId === id
+    this.stopPreview()
+    if (wasThis) return
     this.ensureAudio()
     const node = this.audioCtx!.createBufferSource()
     node.buffer = buffer
     const g = this.audioCtx!.createGain()
     g.gain.value = this.settings.sfxVolume
     chainNodes(node, g, this.monitor!)
+    node.onended = () => {
+      if (this.previewNode !== node) return
+      this.previewNode = null
+      this.previewId = null
+      this.emit()
+    }
     node.start()
+    this.previewNode = node
+    this.previewId = id
+    this.emit()
   }
+
+  stopPreview() {
+    const node = this.previewNode
+    if (!node) return
+    this.previewNode = null
+    this.previewId = null
+    node.onended = null
+    try {
+      node.stop()
+    } catch {
+      // already stopped
+    }
+    this.emit()
+  }
+
+  getPreviewId = () => this.previewId
 
   setCaptions(words: Word[]) {
     this.words = words
@@ -135,6 +166,7 @@ export class Player {
     if (!this.placed.length) return
     if (this.time >= this.getDuration() - 0.02) this.time = 0
     this.ensureAudio()
+    this.stopPreview()
     this.playing = true
     this.activeIndex = -1
     this.sfxCursor = this.time - 0.001
@@ -288,10 +320,12 @@ export class Player {
   }
 
   /** Placed effects plus the automatic one on every change of position. */
-  private sfxEvents(): { time: number; sfxId: string; volume: number }[] {
-    const events = this.sfx.map((s) => ({ time: s.time, sfxId: s.sfxId, volume: s.volume }))
+  private sfxEvents(): { time: number; sfxId: string; volume: number; offset: number; length: number }[] {
+    const events = this.sfx.map((s) => ({ time: s.time, sfxId: s.sfxId, volume: s.volume, offset: s.offset, length: s.length }))
     const auto = this.settings.transitionSfx
-    if (auto) for (const time of transitionTimes(this.placed)) events.push({ time, sfxId: auto, volume: this.settings.transitionVolume })
+    const autoLength = auto ? (sfxBuffer(auto)?.duration ?? 0) : 0
+    if (auto)
+      for (const time of transitionTimes(this.placed)) events.push({ time, sfxId: auto, volume: this.settings.transitionVolume, offset: 0, length: autoLength })
     return events
   }
 
@@ -300,15 +334,22 @@ export class Player {
     for (const e of this.sfxEvents()) {
       if (e.time <= this.sfxCursor || e.time > this.time) continue
       const buffer = sfxBuffer(e.sfxId)
-      if (!buffer) continue
+      // Start a few ms in if the playhead already passed the effect's time.
+      const late = this.time - e.time
+      const remaining = Math.min(e.length, buffer ? buffer.duration - e.offset : 0) - late
+      if (!buffer || remaining <= 0.01) continue
       const node = this.audioCtx.createBufferSource()
       node.buffer = buffer
       const g = this.audioCtx.createGain()
-      g.gain.value = e.volume
+      // Short fade at the end so a shortened sound doesn't click.
+      const now = this.audioCtx.currentTime
+      const fade = Math.min(0.04, remaining / 2)
+      g.gain.setValueAtTime(e.volume, now)
+      g.gain.setValueAtTime(e.volume, now + remaining - fade)
+      g.gain.linearRampToValueAtTime(0, now + remaining)
       chainNodes(node, g, this.sfxGain)
       node.onended = () => this.sfxNodes.delete(node)
-      // Start a few ms in if the playhead already passed the effect's time.
-      node.start(0, Math.min(this.time - e.time, buffer.duration))
+      node.start(0, e.offset + late, remaining)
       this.sfxNodes.add(node)
     }
     this.sfxCursor = this.time

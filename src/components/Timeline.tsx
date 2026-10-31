@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { player } from '../engine/Player'
-import type { PlacedSfx, Source, Voiceover } from '../types'
+import type { Clip, PlacedSfx, Source, Voiceover } from '../types'
 import { formatTime, transitionTimes, type Placed } from '../timeline'
 import { sfxBuffer, type SfxDef } from '../sfx/library'
-import { usePlayerTime } from '../usePlayer'
+import { usePlayerPlaying, usePlayerTime } from '../usePlayer'
 import { AudioLines, Film, Mic, Music2, Scissors, Trash2, ZoomIn, ZoomOut } from 'lucide-react'
 import { SfxIcon } from '../sfx/SfxIcon'
 import { Range } from './ui'
@@ -24,10 +24,19 @@ interface Props {
   transitionSfx: string | null
   selectedSfxId: string | null
   onSelectSfx: (id: string) => void
-  onMoveSfx: (id: string, time: number) => void
+  onChangeSfx: (id: string, patch: Partial<PlacedSfx>) => void
+  onTrimClip: (id: string, patch: Partial<Clip>) => void
 }
 
 const PAD = 16
+const MIN_CLIP = 0.2
+const MIN_SFX = 0.05
+
+/** What a pointer drag on the timeline is doing. */
+type Drag =
+  | { kind: 'scrub' }
+  | { kind: 'sfx-move' | 'sfx-start' | 'sfx-end'; id: string; x: number; sfx: PlacedSfx }
+  | { kind: 'clip-start' | 'clip-end'; id: string; x: number; clip: Clip }
 
 export function Timeline({
   placed,
@@ -45,15 +54,25 @@ export function Timeline({
   transitionSfx,
   selectedSfxId,
   onSelectSfx,
-  onMoveSfx,
+  onChangeSfx,
+  onTrimClip,
 }: Props) {
-  const drag = useRef<{ id: string; x: number; time: number } | null>(null)
+  const drag = useRef<Drag | null>(null)
   const defOf = (id: string) => sfxDefs.find((d) => d.id === id)
   const autoDef = transitionSfx ? defOf(transitionSfx) : undefined
   const [zoom, setZoom] = useState(60) // px per second
   const [dropIndex, setDropIndex] = useState<number | null>(null)
   const time = usePlayerTime()
+  const playing = usePlayerPlaying()
   const scroller = useRef<HTMLDivElement>(null)
+
+  // While playing, keep the playhead in view.
+  useEffect(() => {
+    const el = scroller.current
+    if (!playing || !el) return
+    const x = PAD + time * zoom
+    if (x < el.scrollLeft || x > el.scrollLeft + el.clientWidth - 40) el.scrollLeft = Math.max(0, x - 80)
+  }, [time, zoom, playing])
 
   const width = Math.max(total, voice?.buffer.duration ?? 0, 1) * zoom + PAD * 2 + 200
   const tickStep = zoom >= 80 ? 1 : zoom >= 30 ? 2 : zoom >= 15 ? 5 : 10
@@ -61,8 +80,42 @@ export function Timeline({
 
   const timeFromEvent = (e: { clientX: number }) => {
     const r = scroller.current!.getBoundingClientRect()
-    return (e.clientX - r.left + scroller.current!.scrollLeft - PAD) / zoom
+    return Math.max(0, (e.clientX - r.left + scroller.current!.scrollLeft - PAD) / zoom)
   }
+
+  const startDrag = (e: React.PointerEvent, d: Drag) => {
+    e.stopPropagation()
+    e.preventDefault()
+    // Capture on the timeline itself so the drag keeps working outside the item.
+    scroller.current?.setPointerCapture(e.pointerId)
+    drag.current = d
+    if (d.kind === 'scrub') player.seek(timeFromEvent(e))
+  }
+
+  const onDragMove = (e: React.PointerEvent) => {
+    const d = drag.current
+    if (!d) return
+    if (d.kind === 'scrub') return player.seek(timeFromEvent(e))
+    const dt = (e.clientX - d.x) / zoom
+    if ('sfx' in d) {
+      const { sfx } = d
+      if (d.kind === 'sfx-move') onChangeSfx(d.id, { time: Math.max(0, sfx.time + dt) })
+      else if (d.kind === 'sfx-end')
+        onChangeSfx(d.id, { length: Math.max(MIN_SFX, Math.min(sfx.length + dt, (sfxBuffer(sfx.sfxId)?.duration ?? 0) - sfx.offset)) })
+      else {
+        // Moving the left edge trims the start of the sound and keeps its end where it was.
+        const shift = Math.max(-sfx.offset, -sfx.time, Math.min(dt, sfx.length - MIN_SFX))
+        onChangeSfx(d.id, { time: sfx.time + shift, offset: sfx.offset + shift, length: sfx.length - shift })
+      }
+    } else {
+      const { clip } = d
+      const max = sources.find((s) => s.id === clip.sourceId)?.duration ?? clip.trimEnd
+      if (d.kind === 'clip-start') onTrimClip(d.id, { trimStart: Math.max(0, Math.min(clip.trimStart + dt, clip.trimEnd - MIN_CLIP)) })
+      else onTrimClip(d.id, { trimEnd: Math.min(max, Math.max(clip.trimEnd + dt, clip.trimStart + MIN_CLIP)) })
+    }
+  }
+
+  const endDrag = () => (drag.current = null)
 
   return (
     <div className="timeline">
@@ -109,17 +162,16 @@ export function Timeline({
             Voz
           </div>
         </div>
-        <div className="timeline-scroll" ref={scroller}>
-          <div className="timeline-inner" style={{ width }}>
-            <div
-              className="ruler"
-              onPointerDown={(e) => {
-                e.currentTarget.setPointerCapture(e.pointerId)
-                player.seek(timeFromEvent(e))
-              }}
-              onPointerMove={(e) => e.buttons && player.seek(timeFromEvent(e))}
-              style={{ backgroundSize: `${(tickStep * zoom) / 4}px 6px`, backgroundPosition: `${PAD}px 100%` }}
-            >
+        <div className="timeline-scroll" ref={scroller} onPointerMove={onDragMove} onPointerUp={endDrag} onPointerCancel={endDrag}>
+          <div
+            className="timeline-inner"
+            style={{ width }}
+            onPointerDown={(e) => {
+              // Empty space (not a clip, effect or voice block) moves the playhead.
+              if (!(e.target as HTMLElement).closest('.clip, .sfx-item, .voice-seg')) startDrag(e, { kind: 'scrub' })
+            }}
+          >
+            <div className="ruler" style={{ backgroundSize: `${(tickStep * zoom) / 4}px 6px`, backgroundPosition: `${PAD}px 100%` }}>
               {ticks.map((t) => (
                 <span key={t} className="tick" style={{ left: PAD + t * zoom }}>
                   {formatTime(t, false)}
@@ -158,6 +210,22 @@ export function Timeline({
                     player.seek(timeFromEvent(e))
                   }}
                 >
+                  <span
+                    className="edge left"
+                    title="Arrastra para recortar el inicio"
+                    onPointerDown={(e) => {
+                      onSelect(p.clip.id)
+                      startDrag(e, { kind: 'clip-start', id: p.clip.id, x: e.clientX, clip: p.clip })
+                    }}
+                  />
+                  <span
+                    className="edge right"
+                    title="Arrastra para recortar el final"
+                    onPointerDown={(e) => {
+                      onSelect(p.clip.id)
+                      startDrag(e, { kind: 'clip-end', id: p.clip.id, x: e.clientX, clip: p.clip })
+                    }}
+                  />
                   {dropIndex === i && <span className="drop-marker" />}
                   <div className="clip-top">
                     <span className="clip-name">{p.clip.label || sources.find((s) => s.id === p.clip.sourceId)?.name}</span>
@@ -178,26 +246,22 @@ export function Timeline({
                 ))}
               {sfx.map((s) => {
                 const def = defOf(s.sfxId)
-                const len = sfxBuffer(s.sfxId)?.duration ?? 0.5
+                const w = s.length * zoom
+                const grab = (kind: 'sfx-move' | 'sfx-start' | 'sfx-end') => (e: React.PointerEvent) => {
+                  onSelectSfx(s.id)
+                  startDrag(e, { kind, id: s.id, x: e.clientX, sfx: s })
+                }
                 return (
                   <div
                     key={s.id}
-                    className={['sfx-item', s.id === selectedSfxId ? 'selected' : '', len * zoom < 64 ? 'narrow' : ''].join(' ')}
-                    style={{ left: PAD + s.time * zoom, width: Math.max(26, len * zoom) }}
+                    className={['sfx-item', s.id === selectedSfxId ? 'selected' : '', w < 64 ? 'narrow' : ''].join(' ')}
+                    style={{ left: PAD + s.time * zoom, width: Math.max(14, w) }}
                     title={def?.name}
-                    onPointerDown={(e) => {
-                      e.stopPropagation()
-                      e.currentTarget.setPointerCapture(e.pointerId)
-                      drag.current = { id: s.id, x: e.clientX, time: s.time }
-                      onSelectSfx(s.id)
-                    }}
-                    onPointerMove={(e) => {
-                      const d = drag.current
-                      if (d?.id === s.id) onMoveSfx(s.id, Math.max(0, d.time + (e.clientX - d.x) / zoom))
-                    }}
-                    onPointerUp={() => (drag.current = null)}
+                    onPointerDown={grab('sfx-move')}
                   >
+                    <span className="edge left" title="Arrastra para recortar el inicio" onPointerDown={grab('sfx-start')} />
                     <SfxIcon id={s.sfxId} size={13} /> <span className="ellipsis">{def?.name}</span>
+                    <span className="edge right" title="Arrastra para cambiar la duración" onPointerDown={grab('sfx-end')} />
                   </div>
                 )
               })}
@@ -222,7 +286,9 @@ export function Timeline({
               ))}
             </div>
 
-            <div className="playhead" style={{ left: PAD + time * zoom }} />
+            <div className="playhead" style={{ left: PAD + time * zoom }}>
+              <span className="playhead-grip" title="Arrastra para moverte por el vídeo" onPointerDown={(e) => startDrag(e, { kind: 'scrub' })} />
+            </div>
           </div>
         </div>
       </div>

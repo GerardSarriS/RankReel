@@ -7,7 +7,7 @@ Editor web para crear vídeos de rankings verticales (Top 5, Top 10…) listos p
 ## Qué hace (MVP)
 
 - **Clips:** subes vídeos (o los arrastras a la vista previa). Cada clip recibe un puesto (#1, #2…) y una etiqueta.
-- **Timeline:** reordenas arrastrando, recortas el inicio y el fin, divides en el cabezal, borras y haces zoom.
+- **Timeline:** reordenas arrastrando, recortas clips y efectos arrastrando sus bordes, mueves el cabezal arrastrándolo o haciendo clic en cualquier hueco, divides, borras y haces zoom. Atajos: espacio (reproducir), Supr (borrar), Esc (deseleccionar), ← / → (0,1 s; con Mayús, 1 s).
 - **Ranking:**
   - lista de cuenta atrás: todos los números desde el principio y los nombres aparecen cuando se reproduce su clip;
   - insignia `#N`;

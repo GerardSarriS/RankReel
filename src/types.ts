@@ -188,4 +188,8 @@ export interface PlacedSfx {
   sfxId: string
   time: number
   volume: number
+  /** Seconds skipped at the start of the sound. */
+  offset: number
+  /** Seconds played from `offset` on. */
+  length: number
 }
